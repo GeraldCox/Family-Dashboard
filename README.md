@@ -148,4 +148,4 @@ All state lives in `./data/*.json` on the host, created automatically on first r
 
 ## License
 
-No license has been chosen yet. Add one (MIT is a common default for a project like this) before accepting outside contributions.
+[MIT](LICENSE)
