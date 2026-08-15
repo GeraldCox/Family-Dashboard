@@ -17,7 +17,16 @@ Everything runs in two small Docker containers (React frontend + Express backend
 
 ## Screenshots
 
-_Add a screenshot or two here once you have it running — the calendar/month view and the home tab are good ones to show off._
+| | |
+|---|---|
+| **Home** — weather, month calendar, routines | **Chores** — star rewards and up-for-grabs |
+| ![Home tab](docs/screenshots/home.png) | ![Chores tab](docs/screenshots/chores.png) |
+| **Meals** — weekly planner | **Tasks** — multiple lists |
+| ![Meals tab](docs/screenshots/meals.png) | ![Tasks tab](docs/screenshots/tasks.png) |
+| **Calendar** — day/week/2-week/month views | **Shopping** — grouped by source meal |
+| ![Calendar tab](docs/screenshots/calendar.png) | ![Shopping tab](docs/screenshots/shopping.png) |
+
+_Shown with a fresh install's default placeholder data — no calendars connected, so the calendar view is empty in these shots._
 
 ## Tech stack
 
@@ -42,7 +51,7 @@ Edit `.env` and fill in whatever's relevant to you — everything is optional ex
 |----------|----------|---------|
 | `TZ` | Recommended | Timezone for chore/routine resets and "today" logic |
 | `CALDAV_URL` / `CALDAV_USERNAME` / `CALDAV_PASSWORD` | No | CalDAV calendar sync — for Google, use an [app password](https://myaccount.google.com/apppasswords) |
-| `WEATHER_LAT` / `WEATHER_LON` | No | Location for the weather widget (defaults to NYC) |
+| `WEATHER_LAT` / `WEATHER_LON` / `WEATHER_LOCATION_LABEL` | No | Location for the weather widget (defaults to NYC coordinates with no label shown) |
 | `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` / `GOOGLE_REDIRECT_URI` | No | Google OAuth calendar sync — create credentials in the [Google Cloud Console](https://console.cloud.google.com/apis/credentials) |
 | `DASHBOARD_URL` | No | Public URL to redirect to after Google OAuth completes |
 | `SPOONACULAR_API_KEY` | No | Recipe search — free key from [spoonacular.com/food-api](https://spoonacular.com/food-api) |
