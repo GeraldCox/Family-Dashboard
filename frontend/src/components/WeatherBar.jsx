@@ -52,7 +52,7 @@ export default function WeatherBar() {
         <Icon name={w.icon} size={isMobile ? 34 : 42} style={{ color: w.tint }} />
         <div>
           <div style={styles.temp}>{Math.round(cur.temperature_2m)}°F</div>
-          <div style={styles.desc}>{w.label} · Pearl City, HI</div>
+          <div style={styles.desc}>{w.label}{weather.location ? ` · ${weather.location}` : ''}</div>
         </div>
         {!isMobile && (
           <div style={styles.meta}>

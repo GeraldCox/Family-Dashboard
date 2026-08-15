@@ -15,8 +15,8 @@ const DATA_DIR = '/app/data';
 const PHOTOS_DIR = path.join(DATA_DIR, 'photos');
 
 // Household timezone for all "what day is it" logic (chore/routine resets).
-// Falls back to Pacific/Honolulu if TZ isn't set in the environment.
-const APP_TIMEZONE = process.env.TZ || 'Pacific/Honolulu';
+// Falls back to America/New_York if TZ isn't set in the environment.
+const APP_TIMEZONE = process.env.TZ || 'America/New_York';
 const FILES = {
   chores: path.join(DATA_DIR, 'chores.json'),
   meals: path.join(DATA_DIR, 'meals.json'),
@@ -1243,7 +1243,7 @@ app.get('/api/weather', async (req, res) => {
     const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,weathercode,windspeed_10m,relative_humidity_2m&daily=temperature_2m_max,temperature_2m_min,weathercode,sunrise,sunset&temperature_unit=fahrenheit&wind_speed_unit=mph&timezone=auto&forecast_days=6`;
     const r = await fetch(url);
     const data = await r.json();
-    res.json(data);
+    res.json({ ...data, location: process.env.WEATHER_LOCATION_LABEL || '' });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
