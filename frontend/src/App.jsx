@@ -1,0 +1,294 @@
+import { useState, useEffect, useRef } from 'react';
+import { api } from './api';
+import WeatherBar from './components/WeatherBar';
+import Sidebar from './components/Sidebar';
+import HomeTab from './components/HomeTab';
+import Calendar from './components/Calendar';
+import Chores from './components/Chores';
+import Tasks from './components/Tasks';
+import Meals from './components/Meals';
+import EditTab from './components/EditTab';
+import ShoppingList from './components/ShoppingList';
+import Homeschool from './components/Homeschool';
+import Beach from './components/Beach';
+import Timer from './components/Timer';
+import Screensaver from './components/Screensaver';
+import AddEventModal from './components/AddEventModal';
+import Icon from './components/Icon';
+import { useScreenSize } from './hooks/useScreenSize';
+import { useDayNight } from './hooks/useDayNight';
+
+const DEFAULT_SCREENSAVER_SETTINGS = { inactivityMinutes: 5, transitionSeconds: 6, brightness: 100 };
+const ACTIVITY_EVENTS = ['mousemove', 'touchstart', 'keydown', 'click'];
+
+const VIEW_OPTIONS = [
+  { id: 'day',   label: 'Day' },
+  { id: 'week',  label: 'Week' },
+  { id: '2week', label: '2-Week' },
+  { id: 'month', label: 'Month' },
+];
+
+function CalendarTab({ view, onViewChange, filters, onToggleFilter, sources, refreshToken, onAddEvent }) {
+  const { isMobile } = useScreenSize();
+
+  return (
+    <div style={s.calendarTab}>
+      <div style={{ ...s.calendarControls, ...(isMobile ? s.calendarControlsMobile : {}) }}>
+        <div style={s.viewPills}>
+          {VIEW_OPTIONS.map(o => (
+            <button
+              key={o.id}
+              style={{ ...s.viewPill, ...(view === o.id ? s.viewPillActive : {}) }}
+              onClick={() => onViewChange(o.id)}
+            >
+              {o.label}
+            </button>
+          ))}
+        </div>
+
+        <div style={s.filterChips}>
+          {sources.map(src => {
+            const enabled = filters[src.id] !== false;
+            return (
+              <button
+                key={src.id}
+                style={{ ...s.chip, ...(enabled ? {} : s.chipOff) }}
+                onClick={() => onToggleFilter(src.id)}
+              >
+                <span style={{ ...s.chipDot, background: src.color, opacity: enabled ? 1 : 0.35 }} />
+                {src.name}
+              </button>
+            );
+          })}
+        </div>
+
+        <button style={s.addEventBtn} onClick={onAddEvent}><Icon name="plus" size={17} /> Add Event</button>
+      </div>
+
+      <div style={s.calendarBody}>
+        <Calendar view={view} filters={filters} refreshToken={refreshToken} />
+      </div>
+    </div>
+  );
+}
+
+export default function App() {
+  const [tab, setTab] = useState('home');
+  const [calendarView, setCalendarView] = useState('month');
+  const [calendarFilters, setCalendarFilters] = useState({});
+  const [calendarSources, setCalendarSources] = useState([]);
+  const [calendarRefreshToken, setCalendarRefreshToken] = useState(0);
+  const [showAddEvent, setShowAddEvent] = useState(false);
+  const [screensaverSettings, setScreensaverSettings] = useState(DEFAULT_SCREENSAVER_SETTINGS);
+  const [showScreensaver, setShowScreensaver] = useState(false);
+  const lastActivityRef = useRef(Date.now());
+  const { isMobile } = useScreenSize();
+  const { isDark } = useDayNight();
+
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', isDark ? 'dark' : 'light');
+  }, [isDark]);
+
+  useEffect(() => {
+    api.calendars().then(res => setCalendarSources(res.sources || [])).catch(console.error);
+  }, []);
+
+  useEffect(() => {
+    api.getScreensaverSettings().then(setScreensaverSettings).catch(console.error);
+  }, []);
+
+  useEffect(() => {
+    function markActivity() {
+      lastActivityRef.current = Date.now();
+      setShowScreensaver(prev => (prev ? false : prev));
+    }
+    ACTIVITY_EVENTS.forEach(ev => document.addEventListener(ev, markActivity));
+    return () => ACTIVITY_EVENTS.forEach(ev => document.removeEventListener(ev, markActivity));
+  }, []);
+
+  useEffect(() => {
+    const id = setInterval(() => {
+      const idleMs = Date.now() - lastActivityRef.current;
+      const thresholdMs = (screensaverSettings.inactivityMinutes || DEFAULT_SCREENSAVER_SETTINGS.inactivityMinutes) * 60000;
+      if (idleMs >= thresholdMs) setShowScreensaver(true);
+    }, 10000);
+    return () => clearInterval(id);
+  }, [screensaverSettings.inactivityMinutes]);
+
+  function dismissScreensaver() {
+    lastActivityRef.current = Date.now();
+    setShowScreensaver(false);
+  }
+
+  function previewScreensaver() {
+    setShowScreensaver(true);
+  }
+
+  function toggleFilter(id) {
+    setCalendarFilters(prev => ({ ...prev, [id]: prev[id] === false ? true : false }));
+  }
+
+  return (
+    <div style={s.app}>
+      {showScreensaver && (
+        <Screensaver
+          transitionSeconds={screensaverSettings.transitionSeconds}
+          brightness={screensaverSettings.brightness}
+          onDismiss={dismissScreensaver}
+        />
+      )}
+
+      {showAddEvent && (
+        <AddEventModal
+          onClose={() => setShowAddEvent(false)}
+          onCreated={() => setCalendarRefreshToken(t => t + 1)}
+        />
+      )}
+
+      <Sidebar tab={tab} onChange={setTab} />
+
+      <div style={s.mainCol}>
+        <WeatherBar />
+
+        <div style={s.content}>
+          {tab === 'home' && (
+            <HomeTab view={calendarView} filters={calendarFilters} />
+          )}
+
+          {tab === 'calendar' && (
+            <CalendarTab
+              view={calendarView}
+              onViewChange={setCalendarView}
+              filters={calendarFilters}
+              onToggleFilter={toggleFilter}
+              sources={calendarSources}
+              refreshToken={calendarRefreshToken}
+              onAddEvent={() => setShowAddEvent(true)}
+            />
+          )}
+
+          {tab === 'chores' && (
+            <div style={{ ...s.paneLayout, ...(isMobile ? s.paneLayoutMobile : {}) }}>
+              <Chores />
+            </div>
+          )}
+
+          {tab === 'tasks' && (
+            <div style={{ ...s.paneLayout, ...(isMobile ? s.paneLayoutMobile : {}) }}>
+              <Tasks />
+            </div>
+          )}
+
+          {tab === 'meals' && (
+            <div style={{ ...s.paneLayout, ...(isMobile ? s.paneLayoutMobile : {}) }}>
+              <Meals />
+            </div>
+          )}
+
+          {tab === 'shopping' && (
+            <div style={{ ...s.paneLayout, ...(isMobile ? s.paneLayoutMobile : {}) }}>
+              <ShoppingList />
+            </div>
+          )}
+
+          {tab === 'homeschool' && (
+            <div style={{ ...s.paneLayout, ...(isMobile ? s.paneLayoutMobile : {}) }}>
+              <Homeschool />
+            </div>
+          )}
+
+          {tab === 'beach' && (
+            <div style={{ ...s.paneLayout, ...(isMobile ? s.paneLayoutMobile : {}) }}>
+              <Beach />
+            </div>
+          )}
+
+          {tab === 'timer' && (
+            <div style={{ ...s.paneLayout, ...(isMobile ? s.paneLayoutMobile : {}) }}>
+              <Timer />
+            </div>
+          )}
+
+          {tab === 'edit' && (
+            <div style={{ ...s.paneLayout, ...(isMobile ? s.paneLayoutMobile : {}) }}>
+              <EditTab
+                onPreviewScreensaver={previewScreensaver}
+                onScreensaverSettingsSaved={setScreensaverSettings}
+              />
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+const s = {
+  app: {
+    display: 'flex', flexDirection: 'row', height: '100vh',
+    background: 'var(--bg)', overflow: 'hidden',
+    transition: 'background-color 0.6s ease, color 0.6s ease',
+  },
+  mainCol: {
+    display: 'flex', flexDirection: 'column', flex: 1, minWidth: 0, minHeight: 0,
+  },
+  content: {
+    flex: 1, overflow: 'hidden', minHeight: 0,
+  },
+  paneLayout: {
+    height: '100%', padding: 12,
+    background: 'var(--surface)', borderRadius: 'var(--radius-xl)',
+    overflow: 'hidden', boxShadow: 'var(--shadow-md)',
+    border: '1px solid var(--border)',
+    boxSizing: 'border-box',
+  },
+  paneLayoutMobile: {
+    padding: 6,
+  },
+  calendarTab: {
+    display: 'flex', flexDirection: 'column', height: '100%', padding: 12, gap: 10,
+  },
+  calendarControls: {
+    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+    gap: 12, flexWrap: 'wrap', flexShrink: 0,
+  },
+  calendarControlsMobile: {
+    flexDirection: 'column', alignItems: 'stretch', gap: 8,
+  },
+  viewPills: {
+    display: 'flex', gap: 4, background: 'var(--surface)', padding: 4,
+    borderRadius: 12, boxShadow: 'var(--shadow-sm)', flexShrink: 0,
+  },
+  viewPill: {
+    padding: '7px 14px', borderRadius: 9, fontSize: 14, fontWeight: 600,
+    color: 'var(--text-2)', background: 'transparent',
+  },
+  viewPillActive: {
+    background: 'var(--accent-blue)', color: 'white',
+    boxShadow: '0 2px 6px rgba(60,126,195,0.35)',
+  },
+  filterChips: {
+    display: 'flex', gap: 6, flexWrap: 'wrap',
+  },
+  chip: {
+    display: 'flex', alignItems: 'center', gap: 6, padding: '6px 12px',
+    borderRadius: 20, fontSize: 14, fontWeight: 600, color: 'var(--text-1)',
+    background: 'var(--surface)', boxShadow: 'var(--shadow-sm)',
+  },
+  chipOff: {
+    color: 'var(--text-3)', opacity: 0.6,
+  },
+  chipDot: {
+    width: 8, height: 8, borderRadius: '50%', flexShrink: 0,
+  },
+  addEventBtn: {
+    display: 'flex', alignItems: 'center', gap: 6,
+    padding: '8px 16px', borderRadius: 10, border: 'none',
+    background: 'var(--accent-blue)', color: 'white', fontSize: 14, fontWeight: 600,
+    cursor: 'pointer', flexShrink: 0, marginLeft: 'auto',
+    boxShadow: '0 2px 8px rgba(60,126,195,0.35)',
+  },
+  calendarBody: {
+    flex: 1, minHeight: 0,
+  },
+};

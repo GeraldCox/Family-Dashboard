@@ -1,0 +1,41 @@
+version: '3.8'
+
+services:
+  backend:
+    build: ./backend
+    container_name: family-dashboard-backend
+    restart: unless-stopped
+    ports:
+      - "3001:3001"
+    volumes:
+      - ./data:/app/data
+    environment:
+      - NODE_ENV=production
+      - TZ=${TZ:-America/New_York}
+      - CALDAV_URL=${CALDAV_URL:-}
+      - CALDAV_USERNAME=${CALDAV_USERNAME:-}
+      - CALDAV_PASSWORD=${CALDAV_PASSWORD:-}
+      - WEATHER_LAT=${WEATHER_LAT:-40.7128}
+      - WEATHER_LON=${WEATHER_LON:--74.0060}
+      - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID:-}
+      - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET:-}
+      - GOOGLE_REDIRECT_URI=${GOOGLE_REDIRECT_URI:-}
+      - DASHBOARD_URL=${DASHBOARD_URL:-http://localhost:3000/}
+      - SPOONACULAR_API_KEY=${SPOONACULAR_API_KEY:-}
+      - TIDE_BEACHES=${TIDE_BEACHES:-}
+      - MEALIE_URL=${MEALIE_URL:-}
+      - MEALIE_API_TOKEN=${MEALIE_API_TOKEN:-}
+      - PORT=3001
+
+  frontend:
+    build: ./frontend
+    container_name: family-dashboard-frontend
+    restart: unless-stopped
+    ports:
+      - "3000:80"
+    depends_on:
+      - backend
+
+networks:
+  default:
+    name: family-dashboard
