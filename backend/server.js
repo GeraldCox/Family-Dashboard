@@ -1222,8 +1222,13 @@ app.delete('/api/google-events/:accountId/:calendarId/:eventId', async (req, res
 // Calendar sources
 app.get('/api/calendars', (req, res) => {
   const data = readJSON(FILES.calendars, { sources: [] });
-  // Don't expose passwords
-  const safe = data.sources.map(({ password, ...rest }) => rest);
+  const peopleData = readJSON(FILES.people, { people: [] });
+  const nameById = {};
+  (peopleData.people || []).forEach(p => { nameById[p.id] = p.name; });
+  // Don't expose passwords; use the current person name where the source id matches a person
+  const safe = data.sources.map(({ password, ...rest }) => (
+    nameById[rest.id] ? { ...rest, name: nameById[rest.id] } : rest
+  ));
   res.json({ sources: safe });
 });
 
@@ -1326,7 +1331,14 @@ app.get('/api/tides', async (req, res) => {
 });
 
 // Chores
-app.get('/api/chores', (req, res) => res.json(readJSON(FILES.chores, { people: [] })));
+app.get('/api/chores', (req, res) => {
+  const data = readJSON(FILES.chores, { people: [] });
+  const peopleData = readJSON(FILES.people, { people: [] });
+  const nameById = {};
+  (peopleData.people || []).forEach(p => { nameById[p.id] = p.name; });
+  const people = (data.people || []).map(p => nameById[p.id] ? { ...p, name: nameById[p.id] } : p);
+  res.json({ ...data, people });
+});
 
 app.post('/api/chores/toggle', (req, res) => {
   const { personId, choreId } = req.body;

@@ -148,8 +148,11 @@ export default function Calendar({ view = 'month', filters = {}, refreshToken })
   const [selected, setSelected] = useState(null);
   const [localRefreshToken, setLocalRefreshToken] = useState(0);
   const [gridHeight, setGridHeight] = useState(0);
+  const [people, setPeople] = useState([]);
   const gridWrapRef = useRef(null);
   const { isMobile } = useScreenSize();
+
+  useEffect(() => { api.people().then(res => setPeople(res.people || [])).catch(console.error); }, []);
 
   // Measure the actual available height for the month grid so row height fits
   // whatever chrome is above it (weather bar, controls that may wrap, header,
@@ -482,13 +485,16 @@ export default function Calendar({ view = 'month', filters = {}, refreshToken })
       {view === 'month' && (
         <div style={{ ...styles.legend, ...(isMobile ? styles.legendMobile : {}) }}>
           {[
-            { label: 'Parent 1', color: '#3b82f6' },
-            { label: 'Parent 2', color: '#db2777' },
-            { label: 'Family', color: '#059669' },
-            { label: 'Work', color: '#16a34a' },
-            { label: 'Holidays', color: '#d97706' },
-          ].map(l => (
-            <div key={l.label} style={{ ...styles.lgItem, ...(isMobile ? styles.lgItemMobile : {}) }}>
+            { id: 'parent1', label: 'Parent 1', color: '#3b82f6' },
+            { id: 'parent2', label: 'Parent 2', color: '#db2777' },
+            { id: 'family', label: 'Family', color: '#059669' },
+            { id: 'work', label: 'Work', color: '#16a34a' },
+            { id: 'holidays', label: 'Holidays', color: '#d97706' },
+          ].map(l => {
+            const person = people.find(p => p.id === l.id);
+            return person ? { ...l, label: person.name } : l;
+          }).map(l => (
+            <div key={l.id} style={{ ...styles.lgItem, ...(isMobile ? styles.lgItemMobile : {}) }}>
               <div style={{ ...styles.lgDot, background: l.color }} />
               {l.label}
             </div>
