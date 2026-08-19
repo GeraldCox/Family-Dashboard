@@ -28,6 +28,10 @@ Everything runs in two small Docker containers (React frontend + Express backend
 
 _Shown with a fresh install's default placeholder data — no calendars connected, so the calendar view is empty in these shots._
 
+All shots above are in dark mode; the dashboard also has a light theme (auto-switches with local sunrise/sunset, or can be pinned via the Edit tab):
+
+![Home tab in light mode](docs/screenshots/home-light.png)
+
 ## Tech stack
 
 | Layer    | Stack |
