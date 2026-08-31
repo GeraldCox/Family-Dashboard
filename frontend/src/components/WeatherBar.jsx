@@ -48,6 +48,8 @@ export default function WeatherBar() {
 
   return (
     <div style={{ ...styles.bar, ...(isMobile ? styles.barMobile : {}) }}>
+      {!isMobile && <CountdownWidget />}
+
       <div style={{ ...styles.current, ...(isMobile ? styles.currentMobile : {}) }}>
         <Icon name={w.icon} size={isMobile ? 34 : 42} style={{ color: w.tint }} />
         <div>
@@ -61,8 +63,6 @@ export default function WeatherBar() {
           </div>
         )}
       </div>
-
-      {!isMobile && <CountdownWidget />}
 
       {!isMobile && (
         <div style={styles.forecast}>
