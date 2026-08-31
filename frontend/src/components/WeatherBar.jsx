@@ -53,7 +53,7 @@ export default function WeatherBar() {
 
       <div style={{ ...styles.current, ...(isMobile ? styles.currentMobile : {}) }}>
         <Icon name={w.icon} size={isMobile ? 34 : 42} style={{ color: w.tint }} />
-        <div>
+        <div style={styles.tempCol}>
           <div style={styles.temp}>{Math.round(cur.temperature_2m)}°F</div>
           <div style={styles.desc}>{w.label}{weather.location ? ` · ${weather.location}` : ''}</div>
         </div>
@@ -108,17 +108,34 @@ const styles = {
   // Absorbs the banner's leftover space so weather/forecast/clock sit as a
   // tight group on the right, instead of the countdown strip stretching.
   spacer: { flex: 1, minWidth: 0 },
-  current: { display: 'flex', alignItems: 'center', gap: 12, minWidth: 0, flexShrink: 0 },
+  // Shrinkable too (after forecast has already given up all its room) so
+  // the clock still can't be pushed off-screen on extremely narrow
+  // displays — humidity/wind and the location text clip first via
+  // overflow:hidden, before the icon+temperature would ever be touched.
+  current: { display: 'flex', alignItems: 'center', gap: 12, minWidth: 140, flexShrink: 1, overflow: 'hidden' },
   currentMobile: { minWidth: 0, gap: 10 },
+  // Icon (flexShrink:0 built into Icon.jsx) and this column never shrink —
+  // meta below is the first thing to clip away when .current is squeezed.
+  tempCol: { flexShrink: 0, minWidth: 0 },
   temp: { fontSize: 28, fontWeight: 600, lineHeight: 1, color: 'var(--text-1)', fontFamily: 'var(--font-heading)' },
-  desc: { fontSize: 14, color: 'var(--text-2)', marginTop: 2, whiteSpace: 'nowrap' },
-  meta: { display: 'flex', flexDirection: 'column', gap: 3, fontSize: 13, color: 'var(--text-2)', marginLeft: 6 },
+  desc: {
+    fontSize: 14, color: 'var(--text-2)', marginTop: 2,
+    whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 220,
+  },
+  meta: {
+    display: 'flex', flexDirection: 'column', gap: 3, fontSize: 13, color: 'var(--text-2)', marginLeft: 6,
+    flexShrink: 1, minWidth: 0, overflow: 'hidden',
+  },
   metaItem: { display: 'flex', alignItems: 'center', gap: 5 },
-  forecast: { display: 'flex', gap: 8, flexShrink: 0, justifyContent: 'center' },
+  // Shrinkable (unlike current/clock) and clips via overflow:hidden rather
+  // than forcing the whole bar wider — the least-essential info, so it's
+  // first to give up room when the banner is tight. fcDay stays fixed-width
+  // so cards get cleanly clipped from the right, not squished.
+  forecast: { display: 'flex', gap: 8, flexShrink: 1, minWidth: 0, overflow: 'hidden', justifyContent: 'flex-start' },
   fcDay: {
     display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2,
     padding: '8px 16px', borderRadius: 'var(--radius-md)',
-    background: 'var(--bg)', minWidth: 78,
+    background: 'var(--bg)', minWidth: 78, flexShrink: 0,
     border: '1px solid var(--border)',
   },
   fcDow: { fontSize: 12, fontWeight: 700, color: 'var(--text-3)', letterSpacing: '0.06em', textTransform: 'uppercase' },
