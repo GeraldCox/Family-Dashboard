@@ -58,7 +58,7 @@ function RoutineBubble({ routine, personMap, expanded, onToggleExpand, onToggleS
     <div style={{ ...s.bubble, ...(isComplete ? s.bubbleComplete : {}) }}>
       <div style={s.bubbleHead} onClick={onToggleExpand}>
         <PersonAvatars peopleIds={routine.people} personMap={personMap} />
-        <div style={s.bubbleTitle}>{routine.title}</div>
+        <div style={{ ...s.bubbleTitle, ...(isComplete ? s.bubbleTitleComplete : {}) }}>{routine.title}</div>
         <div style={s.progressWrap}>
           <div style={s.progressTrack}>
             <div style={{ ...s.progressFill, width: `${pct}%`, background: isComplete ? 'var(--green)' : 'var(--blue)' }} />
@@ -195,6 +195,9 @@ const s = {
     flex: 1, fontSize: 15, fontWeight: 700, color: 'var(--text-1)', minWidth: 0,
     overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
   },
+  // --green-bg is a fixed light mint regardless of theme, so --text-1 (near
+  // white in dark mode) nearly disappears on it once a bubble completes.
+  bubbleTitleComplete: { color: 'var(--green-text)' },
 
   avatarStack: { display: 'flex', alignItems: 'center', flexShrink: 0 },
   avatarCircle: {
