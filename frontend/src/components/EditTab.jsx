@@ -19,11 +19,10 @@ const SUB_TABS = [
   { id: 'reminders',   label: 'Reminders' },
   { id: 'accounts',    label: 'Connected Accounts' },
   { id: 'screensaver', label: 'Screensaver' },
-  { id: 'display',     label: 'Display' },
 ];
 
 export default function EditTab({ onPreviewScreensaver, onScreensaverSettingsSaved, onGeneralSettingsSaved }) {
-  const [subTab, setSubTab] = useState('chores');
+  const [subTab, setSubTab] = useState('general');
   const { isMobile } = useScreenSize();
 
   return (
@@ -46,7 +45,6 @@ export default function EditTab({ onPreviewScreensaver, onScreensaverSettingsSav
             onScreensaverSettingsSaved={onScreensaverSettingsSaved}
           />
         )}
-        {subTab === 'display' && <DisplayEditor isMobile={isMobile} />}
       </div>
     </div>
   );
@@ -120,9 +118,16 @@ function SubNav({ subTab, setSubTab, isMobile }) {
 
 const NAV_TOGGLES = NAV_TABS.filter(t => TOGGLEABLE_TAB_IDS.includes(t.id));
 
+const THEME_OPTIONS = [
+  { id: 'auto',  label: 'Automatic (sunset/sunrise)' },
+  { id: 'light', label: 'Always Light' },
+  { id: 'dark',  label: 'Always Dark' },
+];
+
 function GeneralEditor({ isMobile, onGeneralSettingsSaved }) {
   const [hidden, setHidden] = useState(null);
   const [savingId, setSavingId] = useState(null);
+  const [themeOverride, setThemeOverride] = useState(() => localStorage.getItem('themeOverride') || 'auto');
 
   useEffect(() => {
     api.getGeneralSettings().then(res => setHidden(res.hiddenNavItems || [])).catch(console.error);
@@ -140,33 +145,56 @@ function GeneralEditor({ isMobile, onGeneralSettingsSaved }) {
     }
   }
 
+  function selectThemeOverride(value) {
+    localStorage.setItem('themeOverride', value);
+    window.dispatchEvent(new Event('themeOverridechange'));
+    setThemeOverride(value);
+  }
+
   if (hidden === null) return <div style={s.empty}>Loading settings…</div>;
 
   return (
-    <div style={s.card}>
-      <div style={{ ...s.personName, display: 'flex', alignItems: 'center', gap: 8 }}>
-        <Icon name="clipboard-list" size={18} /> Navigation
+    <>
+      <div style={s.card}>
+        <div style={{ ...s.personName, display: 'flex', alignItems: 'center', gap: 8 }}>
+          <Icon name="clipboard-list" size={18} /> Navigation
+        </div>
+        <div style={{ ...s.emptySmall, marginBottom: 10 }}>Choose which items show up in the sidebar.</div>
+        <div style={s.list}>
+          {NAV_TOGGLES.map(t => {
+            const enabled = !hidden.includes(t.id);
+            return (
+              <label key={t.id} style={{ ...s.row, cursor: 'pointer', opacity: savingId === t.id ? 0.6 : 1 }}>
+                <Icon name={t.icon} size={18} style={{ color: 'var(--text-2)' }} />
+                <span style={s.rowName}>{t.label}</span>
+                <input
+                  type="checkbox"
+                  checked={enabled}
+                  onChange={() => toggleNavItem(t.id)}
+                  disabled={savingId !== null}
+                  style={s.toggleCheckbox}
+                />
+              </label>
+            );
+          })}
+        </div>
       </div>
-      <div style={{ ...s.emptySmall, marginBottom: 10 }}>Choose which items show up in the sidebar.</div>
-      <div style={s.list}>
-        {NAV_TOGGLES.map(t => {
-          const enabled = !hidden.includes(t.id);
-          return (
-            <label key={t.id} style={{ ...s.row, cursor: 'pointer', opacity: savingId === t.id ? 0.6 : 1 }}>
-              <Icon name={t.icon} size={18} style={{ color: 'var(--text-2)' }} />
-              <span style={s.rowName}>{t.label}</span>
-              <input
-                type="checkbox"
-                checked={enabled}
-                onChange={() => toggleNavItem(t.id)}
-                disabled={savingId !== null}
-                style={s.toggleCheckbox}
-              />
-            </label>
-          );
-        })}
+
+      <div style={s.card}>
+        <div style={{ ...s.personName, display: 'flex', alignItems: 'center', gap: 8 }}><Icon name="moon" size={17} /> Display</div>
+        <div style={{ ...s.addRow, ...(isMobile ? s.addRowMobile : {}) }}>
+          {THEME_OPTIONS.map(opt => (
+            <button
+              key={opt.id}
+              style={{ ...s.addBtn, background: themeOverride === opt.id ? 'var(--blue)' : 'var(--surface2)', color: themeOverride === opt.id ? 'white' : 'var(--text-2)' }}
+              onClick={() => selectThemeOverride(opt.id)}
+            >
+              {opt.label}
+            </button>
+          ))}
+        </div>
       </div>
-    </div>
+    </>
   );
 }
 
@@ -2048,41 +2076,6 @@ function ScreensaverEditor({ isMobile, onPreviewScreensaver, onScreensaverSettin
           </button>
           <button style={s.addBtn} onClick={saveSettings}>{saved ? 'Saved ✓' : 'Save Settings'}</button>
         </div>
-      </div>
-    </div>
-  );
-}
-
-// ── Display Editor ───────────────────────────────────────────────────────────
-
-const THEME_OPTIONS = [
-  { id: 'auto',  label: 'Automatic (sunset/sunrise)' },
-  { id: 'light', label: 'Always Light' },
-  { id: 'dark',  label: 'Always Dark' },
-];
-
-function DisplayEditor({ isMobile }) {
-  const [themeOverride, setThemeOverride] = useState(() => localStorage.getItem('themeOverride') || 'auto');
-
-  function selectOverride(value) {
-    localStorage.setItem('themeOverride', value);
-    window.dispatchEvent(new Event('themeOverridechange'));
-    setThemeOverride(value);
-  }
-
-  return (
-    <div style={s.card}>
-      <div style={{ ...s.personName, display: 'flex', alignItems: 'center', gap: 8 }}><Icon name="moon" size={17} /> Theme</div>
-      <div style={{ ...s.addRow, ...(isMobile ? s.addRowMobile : {}) }}>
-        {THEME_OPTIONS.map(opt => (
-          <button
-            key={opt.id}
-            style={{ ...s.addBtn, background: themeOverride === opt.id ? 'var(--blue)' : 'var(--surface2)', color: themeOverride === opt.id ? 'white' : 'var(--text-2)' }}
-            onClick={() => selectOverride(opt.id)}
-          >
-            {opt.label}
-          </button>
-        ))}
       </div>
     </div>
   );
