@@ -82,7 +82,10 @@ export default function CountdownWidget() {
 }
 
 const s = {
-  wrap: { position: 'relative', flex: 1, minWidth: 0, height: '100%' },
+  // minWidth guarantees at least one full 160px card (plus a little breathing
+  // room) stays visible even when the row is tight, instead of flex:1 letting
+  // it shrink below one card's width.
+  wrap: { position: 'relative', flex: 1, minWidth: 180, height: '100%' },
   strip: {
     display: 'flex', flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-start', gap: 8,
     height: '100%', width: '100%',
