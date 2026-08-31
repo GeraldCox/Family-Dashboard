@@ -49,6 +49,21 @@ export default function WeatherBar() {
   return (
     <div style={{ ...styles.bar, ...(isMobile ? styles.barMobile : {}) }}>
       {!isMobile && <CountdownWidget />}
+      {!isMobile && <div style={styles.spacer} />}
+
+      <div style={{ ...styles.current, ...(isMobile ? styles.currentMobile : {}) }}>
+        <Icon name={w.icon} size={isMobile ? 34 : 42} style={{ color: w.tint }} />
+        <div>
+          <div style={styles.temp}>{Math.round(cur.temperature_2m)}°F</div>
+          <div style={styles.desc}>{w.label}{weather.location ? ` · ${weather.location}` : ''}</div>
+        </div>
+        {!isMobile && (
+          <div style={styles.meta}>
+            <span style={styles.metaItem}><Icon name="droplet" size={15} style={{ color: '#5a9fd4' }} /> {cur.relative_humidity_2m}%</span>
+            <span style={styles.metaItem}><Icon name="wind" size={15} style={{ color: 'var(--text-3)' }} /> {Math.round(cur.windspeed_10m)} mph</span>
+          </div>
+        )}
+      </div>
 
       {!isMobile && (
         <div style={styles.forecast}>
@@ -68,20 +83,6 @@ export default function WeatherBar() {
           })}
         </div>
       )}
-
-      <div style={{ ...styles.current, ...(isMobile ? styles.currentMobile : {}) }}>
-        <Icon name={w.icon} size={isMobile ? 34 : 42} style={{ color: w.tint }} />
-        <div>
-          <div style={styles.temp}>{Math.round(cur.temperature_2m)}°F</div>
-          <div style={styles.desc}>{w.label}{weather.location ? ` · ${weather.location}` : ''}</div>
-        </div>
-        {!isMobile && (
-          <div style={styles.meta}>
-            <span style={styles.metaItem}><Icon name="droplet" size={15} style={{ color: '#5a9fd4' }} /> {cur.relative_humidity_2m}%</span>
-            <span style={styles.metaItem}><Icon name="wind" size={15} style={{ color: 'var(--text-3)' }} /> {Math.round(cur.windspeed_10m)} mph</span>
-          </div>
-        )}
-      </div>
 
       <div style={styles.clockWrap}>
         <div style={{ ...styles.clock, ...(isMobile ? styles.clockMobile : {}) }}>
@@ -104,6 +105,9 @@ const styles = {
   barMobile: {
     gap: 10, padding: '8px 12px', justifyContent: 'space-between',
   },
+  // Absorbs the banner's leftover space so weather/forecast/clock sit as a
+  // tight group on the right, instead of the countdown strip stretching.
+  spacer: { flex: 1, minWidth: 0 },
   current: { display: 'flex', alignItems: 'center', gap: 12, minWidth: 0, flexShrink: 0 },
   currentMobile: { minWidth: 0, gap: 10 },
   temp: { fontSize: 28, fontWeight: 600, lineHeight: 1, color: 'var(--text-1)', fontFamily: 'var(--font-heading)' },

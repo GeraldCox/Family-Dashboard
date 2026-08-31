@@ -54,8 +54,15 @@ export default function CountdownWidget() {
 
   if (visible.length === 0) return null;
 
+  // Fixed width sized to the actual card count (capped at 3) rather than
+  // flex:1 — a sibling spacer in WeatherBar absorbs the banner's leftover
+  // space instead, so weather/forecast/clock sit as a tight group on the
+  // right. The strip still scrolls with a fade past the cap.
+  const shownCards = Math.min(visible.length, 3);
+  const wrapWidth = shownCards * 160 + (shownCards - 1) * 8;
+
   return (
-    <div style={s.wrap}>
+    <div style={{ ...s.wrap, width: wrapWidth }}>
       <div ref={scrollRef} style={s.strip} className="no-scrollbar">
         {visible.map(cd => {
           const days = daysUntil(cd.date);
@@ -82,10 +89,10 @@ export default function CountdownWidget() {
 }
 
 const s = {
-  // minWidth guarantees at least one full 160px card (plus a little breathing
-  // room) stays visible even when the row is tight, instead of flex:1 letting
-  // it shrink below one card's width.
-  wrap: { position: 'relative', flex: 1, minWidth: 180, height: '100%' },
+  // No flexShrink:0 here deliberately — it needs to shrink (revealing fewer
+  // cards via the internal scroll+fade) when the banner is tight, down to
+  // minWidth's one-card floor, rather than forcing the whole bar to overflow.
+  wrap: { position: 'relative', minWidth: 180, height: '100%' },
   strip: {
     display: 'flex', flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-start', gap: 8,
     height: '100%', width: '100%',
