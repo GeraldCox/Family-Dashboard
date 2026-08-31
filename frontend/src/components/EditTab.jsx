@@ -134,6 +134,8 @@ function GeneralEditor({ isMobile, onGeneralSettingsSaved }) {
   const [searchingLocation, setSearchingLocation] = useState(false);
   const [savingLocation, setSavingLocation] = useState(null);
   const [locationError, setLocationError] = useState('');
+  const [editingLabel, setEditingLabel] = useState(false);
+  const [labelDraft, setLabelDraft] = useState('');
 
   useEffect(() => {
     api.getGeneralSettings().then(res => setHidden(res.hiddenNavItems || [])).catch(console.error);
@@ -171,6 +173,24 @@ function GeneralEditor({ isMobile, onGeneralSettingsSaved }) {
       setLocationError('Could not save that location.');
     } finally {
       setSavingLocation(null);
+    }
+  }
+
+  function startEditLabel() {
+    setLabelDraft(location.label || '');
+    setEditingLabel(true);
+  }
+
+  async function saveLabel() {
+    const name = labelDraft.trim();
+    setEditingLabel(false);
+    if (!name || name === location.label) return;
+    try {
+      const res = await api.saveWeatherLocation(location.lat, location.lon, name);
+      setLocation(res.settings);
+    } catch (err) {
+      console.error(err);
+      setLocationError('Could not rename that location.');
     }
   }
 
@@ -238,11 +258,32 @@ function GeneralEditor({ isMobile, onGeneralSettingsSaved }) {
 
       <div style={s.card}>
         <div style={{ ...s.personName, display: 'flex', alignItems: 'center', gap: 8 }}><Icon name="map-pin" size={17} /> Location for Weather</div>
-        <div style={{ ...s.emptySmall, marginBottom: 10 }}>
-          {location?.lat != null
-            ? <>Currently: <strong style={{ color: 'var(--text-1)' }}>{location.label || `${location.lat}, ${location.lon}`}</strong></>
-            : 'Not set yet — the weather widget is using a fallback location. Search below to set yours.'}
-        </div>
+        {location?.lat != null ? (
+          editingLabel ? (
+            <div style={{ ...s.addRow, ...(isMobile ? s.addRowMobile : {}), marginBottom: 10 }}>
+              <input
+                style={s.nameInput}
+                type="text"
+                autoFocus
+                value={labelDraft}
+                onChange={e => setLabelDraft(e.target.value)}
+                onKeyDown={e => { if (e.key === 'Enter') saveLabel(); if (e.key === 'Escape') setEditingLabel(false); }}
+                onBlur={saveLabel}
+              />
+            </div>
+          ) : (
+            <div style={{ ...s.emptySmall, marginBottom: 10, display: 'flex', alignItems: 'center', gap: 6 }}>
+              Currently: <strong style={{ color: 'var(--text-1)' }}>{location.label || `${location.lat}, ${location.lon}`}</strong>
+              <button style={s.trashBtn} onClick={startEditLabel} title="Rename this location's label">
+                <Icon name="pencil" size={14} />
+              </button>
+            </div>
+          )
+        ) : (
+          <div style={{ ...s.emptySmall, marginBottom: 10 }}>
+            Not set yet — the weather widget is using a fallback location. Search below to set yours.
+          </div>
+        )}
         <div style={{ ...s.addRow, ...(isMobile ? s.addRowMobile : {}) }}>
           <input
             style={s.nameInput}

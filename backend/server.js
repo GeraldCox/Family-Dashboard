@@ -1282,6 +1282,27 @@ app.get('/api/weather', async (req, res) => {
   }
 });
 
+const US_STATE_ABBR = {
+  Alabama: 'AL', Alaska: 'AK', Arizona: 'AZ', Arkansas: 'AR', California: 'CA',
+  Colorado: 'CO', Connecticut: 'CT', Delaware: 'DE', Florida: 'FL', Georgia: 'GA',
+  Hawaii: 'HI', Idaho: 'ID', Illinois: 'IL', Indiana: 'IN', Iowa: 'IA',
+  Kansas: 'KS', Kentucky: 'KY', Louisiana: 'LA', Maine: 'ME', Maryland: 'MD',
+  Massachusetts: 'MA', Michigan: 'MI', Minnesota: 'MN', Mississippi: 'MS', Missouri: 'MO',
+  Montana: 'MT', Nebraska: 'NE', Nevada: 'NV', 'New Hampshire': 'NH', 'New Jersey': 'NJ',
+  'New Mexico': 'NM', 'New York': 'NY', 'North Carolina': 'NC', 'North Dakota': 'ND', Ohio: 'OH',
+  Oklahoma: 'OK', Oregon: 'OR', Pennsylvania: 'PA', 'Rhode Island': 'RI', 'South Carolina': 'SC',
+  'South Dakota': 'SD', Tennessee: 'TN', Texas: 'TX', Utah: 'UT', Vermont: 'VT',
+  Virginia: 'VA', Washington: 'WA', 'West Virginia': 'WV', Wisconsin: 'WI', Wyoming: 'WY',
+  'District of Columbia': 'DC',
+};
+
+function geocodeLabel(place) {
+  if (place.country === 'United States' && US_STATE_ABBR[place.admin1]) {
+    return [place.name, US_STATE_ABBR[place.admin1]].filter(Boolean).join(', ');
+  }
+  return [place.name, place.admin1, place.country].filter(Boolean).join(', ');
+}
+
 app.get('/api/weather/geocode', async (req, res) => {
   try {
     const q = (req.query.q || '').trim();
@@ -1290,7 +1311,7 @@ app.get('/api/weather/geocode', async (req, res) => {
     const r = await fetch(url);
     const data = await r.json();
     const results = (data.results || []).map(place => ({
-      label: [place.name, place.admin1, place.country].filter(Boolean).join(', '),
+      label: geocodeLabel(place),
       lat: place.latitude,
       lon: place.longitude,
     }));
