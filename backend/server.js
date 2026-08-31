@@ -1372,6 +1372,16 @@ app.post('/api/chores/toggle', (req, res) => {
   res.json({ ok: true, done: chore.done, totalStars: person.totalStars });
 });
 
+app.post('/api/chores/set-person-hidden', (req, res) => {
+  const { personId, hidden } = req.body;
+  const data = readJSON(FILES.chores, { people: [] });
+  const person = data.people.find(p => p.id === personId);
+  if (!person) return res.status(404).json({ error: 'Person not found' });
+  person.hidden = !!hidden;
+  writeJSON(FILES.chores, data);
+  res.json({ ok: true, hidden: person.hidden });
+});
+
 app.post('/api/chores/add', (req, res) => {
   const { personId, name, emoji, reset } = req.body;
   const data = readJSON(FILES.chores, { people: [] });

@@ -323,6 +323,14 @@ function ChoresEditor({ isMobile }) {
     }));
   }
 
+  async function togglePersonHidden(personId, hidden) {
+    setData(prev => ({
+      ...prev,
+      people: prev.people.map(p => p.id !== personId ? p : { ...p, hidden })
+    }));
+    await api.setPersonHidden(personId, hidden);
+  }
+
   async function saveReward(personId, draft) {
     const name = draft.name.trim() || 'Reward';
     const stars = Number(draft.stars) || 0;
@@ -411,12 +419,20 @@ function ChoresEditor({ isMobile }) {
         const showReward = STAR_REWARD_PEOPLE.includes(person.id);
         const rewardDraft = getRewardDraft(person);
         return (
-          <div key={person.id} style={s.card}>
+          <div key={person.id} style={{ ...s.card, ...(person.hidden ? s.cardHidden : {}) }}>
             <div style={s.personHead}>
               <div style={{ ...s.avatar, background: person.color + '22', color: person.color }}>
                 {person.name[0]}
               </div>
               <div style={s.personName}>{person.name}</div>
+              <button
+                style={s.visibilityBtn}
+                onClick={() => togglePersonHidden(person.id, !person.hidden)}
+                title={person.hidden ? 'Hidden from Chores page — click to show' : 'Visible on Chores page — click to hide'}
+              >
+                <Icon name={person.hidden ? 'eye-off' : 'eye'} size={18} />
+                {person.hidden ? 'Hidden' : 'Visible'}
+              </button>
             </div>
 
             <div style={s.starAdjustRow}>
@@ -2130,8 +2146,15 @@ const s = {
     boxShadow: 'var(--shadow-sm)', border: '0.5px solid var(--border)',
     marginBottom: 16,
   },
+  cardHidden: { opacity: 0.55 },
   personHead: { display: 'flex', alignItems: 'center', gap: 12, marginBottom: 14 },
   avatar: { width: 39, height: 39, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: 16, flexShrink: 0 },
+  visibilityBtn: {
+    display: 'flex', alignItems: 'center', gap: 6, marginLeft: 'auto',
+    padding: '6px 12px', borderRadius: 10, fontSize: 13, fontWeight: 600,
+    color: 'var(--text-2)', background: 'var(--bg)', border: '0.5px solid var(--border)',
+    cursor: 'pointer', flexShrink: 0,
+  },
   personName: { fontSize: 17, fontWeight: 700, color: 'var(--text-1)', marginBottom: 10, fontFamily: 'var(--font-heading)' },
   swatch: { width: 39, height: 39, borderRadius: '50%', flexShrink: 0, border: '1px solid var(--border)' },
   colorInput: {

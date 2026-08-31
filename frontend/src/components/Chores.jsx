@@ -149,11 +149,14 @@ export default function Chores() {
   const upForGrabs = data.upForGrabs || [];
   const unclaimed = upForGrabs.filter(c => !c.done);
   const claimed = upForGrabs.filter(c => c.done);
+  // Keep the full list for "done by" lookups so past attributions still resolve
+  // even if that person is later hidden from the page.
   const personById = Object.fromEntries(data.people.map(p => [p.id, p]));
+  const visiblePeople = data.people.filter(p => !p.hidden);
 
   return (
     <div style={{ ...s.wrap, ...(isMobile ? s.wrapMobile : {}) }}>
-      {data.people.map(person => {
+      {visiblePeople.map(person => {
         const done = person.chores.filter(c => c.done).length;
         const total = person.chores.length;
         const pct = total ? (done / total) * 100 : 0;
@@ -282,7 +285,7 @@ export default function Chores() {
                 </div>
                 {claimingId === chore.id ? (
                   <div style={s.pickerRow}>
-                    {data.people.map(person => (
+                    {visiblePeople.map(person => (
                       <button
                         key={person.id}
                         style={{ ...s.pickerAvatar, background: person.color + '22', color: person.color }}
