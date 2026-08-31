@@ -178,7 +178,7 @@ const DEFAULT_PHOTO_SETTINGS = { inactivityMinutes: 5, transitionSeconds: 6, bri
 // Sidebar nav items the household can hide from the "General" editor tab.
 // Anything not in this list (home, calendar, chores, etc.) always shows.
 const TOGGLEABLE_NAV_ITEMS = ['homeschool', 'beach', 'timer'];
-const DEFAULT_GENERAL_SETTINGS = { hiddenNavItems: [] };
+const DEFAULT_GENERAL_SETTINGS = { hiddenNavItems: [], countdownHideAfterDays: 1 };
 
 // Weather location: { lat, lon, label } once set via the General tab. Null
 // fields mean "not yet configured" — /api/weather falls back to the
@@ -2448,11 +2448,16 @@ app.get('/api/settings/general', (req, res) => {
 });
 
 app.post('/api/settings/general', (req, res) => {
-  const { hiddenNavItems } = req.body;
+  const current = readJSON(FILES.generalSettings, DEFAULT_GENERAL_SETTINGS);
+  const { hiddenNavItems, countdownHideAfterDays } = req.body;
+  const parsedHideAfterDays = Number(countdownHideAfterDays);
   const settings = {
     hiddenNavItems: Array.isArray(hiddenNavItems)
       ? hiddenNavItems.filter(id => TOGGLEABLE_NAV_ITEMS.includes(id))
-      : [],
+      : current.hiddenNavItems,
+    countdownHideAfterDays: Number.isFinite(parsedHideAfterDays) && parsedHideAfterDays >= 0
+      ? parsedHideAfterDays
+      : current.countdownHideAfterDays,
   };
   writeJSON(FILES.generalSettings, settings);
   res.json({ ok: true, settings });
@@ -2504,13 +2509,8 @@ app.get('/api/countdowns', (req, res) => {
   res.json({ countdowns: sorted });
 });
 
-function parseHideAfterDays(value, fallback) {
-  const n = Number(value);
-  return Number.isFinite(n) && n >= 0 ? n : fallback;
-}
-
 app.post('/api/countdowns/add', (req, res) => {
-  const { name, emoji, date, color, hideAfterDays } = req.body;
+  const { name, emoji, date, color } = req.body;
   const data = readJSON(FILES.countdowns, { countdowns: [] });
   const countdown = {
     id: `cd${Date.now()}`,
@@ -2518,7 +2518,6 @@ app.post('/api/countdowns/add', (req, res) => {
     emoji: emoji || '📅',
     date,
     color: color || '#3b82f6',
-    hideAfterDays: parseHideAfterDays(hideAfterDays, 1),
   };
   data.countdowns.push(countdown);
   writeJSON(FILES.countdowns, data);
@@ -2526,7 +2525,7 @@ app.post('/api/countdowns/add', (req, res) => {
 });
 
 app.post('/api/countdowns/update', (req, res) => {
-  const { id, name, emoji, date, color, hideAfterDays } = req.body;
+  const { id, name, emoji, date, color } = req.body;
   const data = readJSON(FILES.countdowns, { countdowns: [] });
   const countdown = data.countdowns.find(c => c.id === id);
   if (!countdown) return res.status(404).json({ error: 'Countdown not found' });
@@ -2534,7 +2533,6 @@ app.post('/api/countdowns/update', (req, res) => {
   if (emoji !== undefined) countdown.emoji = emoji;
   if (date !== undefined) countdown.date = date;
   if (color !== undefined) countdown.color = color;
-  if (hideAfterDays !== undefined) countdown.hideAfterDays = parseHideAfterDays(hideAfterDays, countdown.hideAfterDays ?? 1);
   writeJSON(FILES.countdowns, data);
   res.json({ ok: true, countdown });
 });

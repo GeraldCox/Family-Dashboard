@@ -15,6 +15,7 @@ export function daysUntil(dateStr) {
 
 export default function CountdownWidget() {
   const [countdowns, setCountdowns] = useState([]);
+  const [hideAfterDays, setHideAfterDays] = useState(1);
   const scrollRef = useRef(null);
   const [canScroll, setCanScroll] = useState({ left: false, right: false });
 
@@ -27,7 +28,11 @@ export default function CountdownWidget() {
     return () => clearInterval(id);
   }, []);
 
-  const visible = countdowns.filter(cd => daysUntil(cd.date) >= -(cd.hideAfterDays ?? 1));
+  useEffect(() => {
+    api.getGeneralSettings().then(res => setHideAfterDays(res.countdownHideAfterDays ?? 1)).catch(console.error);
+  }, []);
+
+  const visible = countdowns.filter(cd => daysUntil(cd.date) >= -hideAfterDays);
 
   useEffect(() => {
     const el = scrollRef.current;

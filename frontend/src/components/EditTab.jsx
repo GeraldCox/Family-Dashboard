@@ -136,9 +136,14 @@ function GeneralEditor({ isMobile, onGeneralSettingsSaved }) {
   const [locationError, setLocationError] = useState('');
   const [editingLabel, setEditingLabel] = useState(false);
   const [labelDraft, setLabelDraft] = useState('');
+  const [countdownHideAfterDays, setCountdownHideAfterDays] = useState(null);
+  const [savingCountdownDays, setSavingCountdownDays] = useState(false);
 
   useEffect(() => {
-    api.getGeneralSettings().then(res => setHidden(res.hiddenNavItems || [])).catch(console.error);
+    api.getGeneralSettings().then(res => {
+      setHidden(res.hiddenNavItems || []);
+      setCountdownHideAfterDays(res.countdownHideAfterDays ?? 1);
+    }).catch(console.error);
   }, []);
 
   useEffect(() => {
@@ -212,6 +217,18 @@ function GeneralEditor({ isMobile, onGeneralSettingsSaved }) {
     setThemeOverride(value);
   }
 
+  async function saveCountdownHideAfterDays() {
+    const n = Number(countdownHideAfterDays);
+    if (!Number.isFinite(n) || n < 0) return;
+    setSavingCountdownDays(true);
+    try {
+      const res = await api.saveGeneralSettings({ countdownHideAfterDays: n });
+      setCountdownHideAfterDays(res.settings.countdownHideAfterDays);
+    } finally {
+      setSavingCountdownDays(false);
+    }
+  }
+
   if (hidden === null) return <div style={s.empty}>Loading settings…</div>;
 
   return (
@@ -253,6 +270,23 @@ function GeneralEditor({ isMobile, onGeneralSettingsSaved }) {
               {opt.label}
             </button>
           ))}
+        </div>
+      </div>
+
+      <div style={s.card}>
+        <div style={{ ...s.personName, display: 'flex', alignItems: 'center', gap: 8 }}><Icon name="calendar" size={17} /> Countdowns</div>
+        <div style={{ ...s.emptySmall, marginBottom: 10 }}>How many days a countdown keeps showing on the Home banner after its date passes.</div>
+        <div style={{ ...s.addRow, ...(isMobile ? s.addRowMobile : {}) }}>
+          <input
+            style={{ ...s.starsNumberInput, ...(isMobile ? s.fullWidthInput : {}) }}
+            type="number"
+            min={0}
+            value={countdownHideAfterDays ?? ''}
+            onChange={e => setCountdownHideAfterDays(e.target.value)}
+          />
+          <button style={s.addBtn} onClick={saveCountdownHideAfterDays} disabled={savingCountdownDays}>
+            {savingCountdownDays ? 'Saving…' : 'Save'}
+          </button>
         </div>
       </div>
 
@@ -1565,13 +1599,11 @@ function CountdownPreviewCard({ draft }) {
   );
 }
 
-const DEFAULT_COUNTDOWN_HIDE_AFTER_DAYS = 1;
-
 function CountdownsEditor({ isMobile }) {
   const [countdowns, setCountdowns] = useState(null);
-  const [draft, setDraft] = useState({ emoji: '', name: '', date: '', color: DEFAULT_COUNTDOWN_COLOR, hideAfterDays: DEFAULT_COUNTDOWN_HIDE_AFTER_DAYS });
+  const [draft, setDraft] = useState({ emoji: '', name: '', date: '', color: DEFAULT_COUNTDOWN_COLOR });
   const [editingId, setEditingId] = useState(null);
-  const [editDraft, setEditDraft] = useState({ emoji: '', name: '', date: '', color: DEFAULT_COUNTDOWN_COLOR, hideAfterDays: DEFAULT_COUNTDOWN_HIDE_AFTER_DAYS });
+  const [editDraft, setEditDraft] = useState({ emoji: '', name: '', date: '', color: DEFAULT_COUNTDOWN_COLOR });
 
   useEffect(() => { refresh(); }, []);
 
@@ -1581,19 +1613,19 @@ function CountdownsEditor({ isMobile }) {
 
   async function addCountdown() {
     if (!draft.name.trim() || !draft.date) return;
-    await api.addCountdown(draft.name.trim(), draft.emoji.trim() || '📅', draft.date, draft.color, Number(draft.hideAfterDays));
-    setDraft({ emoji: '', name: '', date: '', color: DEFAULT_COUNTDOWN_COLOR, hideAfterDays: DEFAULT_COUNTDOWN_HIDE_AFTER_DAYS });
+    await api.addCountdown(draft.name.trim(), draft.emoji.trim() || '📅', draft.date, draft.color);
+    setDraft({ emoji: '', name: '', date: '', color: DEFAULT_COUNTDOWN_COLOR });
     refresh();
   }
 
   function startEdit(cd) {
     setEditingId(cd.id);
-    setEditDraft({ emoji: cd.emoji, name: cd.name, date: cd.date, color: cd.color, hideAfterDays: cd.hideAfterDays ?? DEFAULT_COUNTDOWN_HIDE_AFTER_DAYS });
+    setEditDraft({ emoji: cd.emoji, name: cd.name, date: cd.date, color: cd.color });
   }
 
   async function saveEdit() {
     if (!editDraft.name.trim() || !editDraft.date) return;
-    await api.updateCountdown(editingId, editDraft.name.trim(), editDraft.emoji.trim() || '📅', editDraft.date, editDraft.color, Number(editDraft.hideAfterDays));
+    await api.updateCountdown(editingId, editDraft.name.trim(), editDraft.emoji.trim() || '📅', editDraft.date, editDraft.color);
     setEditingId(null);
     refresh();
   }
@@ -1639,14 +1671,6 @@ function CountdownsEditor({ isMobile }) {
                   value={editDraft.color}
                   onChange={e => setEditDraft(prev => ({ ...prev, color: e.target.value }))}
                 />
-                <input
-                  style={{ ...s.starsNumberInput, ...(isMobile ? s.fullWidthInput : {}) }}
-                  type="number"
-                  min={0}
-                  value={editDraft.hideAfterDays}
-                  onChange={e => setEditDraft(prev => ({ ...prev, hideAfterDays: e.target.value }))}
-                  title="Hide from the Home banner this many days after the date passes"
-                />
               </div>
               <div style={s.countdownEditFooter}>
                 <CountdownPreviewCard draft={editDraft} />
@@ -1661,9 +1685,6 @@ function CountdownsEditor({ isMobile }) {
               <span style={s.rowEmoji}>{cd.emoji}</span>
               <span style={s.rowName}>{cd.name}</span>
               <span style={s.rowReset}>{cd.date}</span>
-              <span style={s.rowReset} title="Days shown on the Home banner after the date passes">
-                +{cd.hideAfterDays ?? DEFAULT_COUNTDOWN_HIDE_AFTER_DAYS}d
-              </span>
               <div style={{ ...s.colorSwatchSmall, background: cd.color }} />
               <button style={s.trashBtn} onClick={() => startEdit(cd)} title="Edit countdown"><Icon name="pencil" size={16} /></button>
               <button style={s.trashBtn} onClick={() => removeCountdown(cd.id)} title="Delete countdown"><Icon name="trash" size={16} /></button>
@@ -1702,14 +1723,6 @@ function CountdownsEditor({ isMobile }) {
             type="color"
             value={draft.color}
             onChange={e => setDraft(prev => ({ ...prev, color: e.target.value }))}
-          />
-          <input
-            style={{ ...s.starsNumberInput, ...(isMobile ? s.fullWidthInput : {}) }}
-            type="number"
-            min={0}
-            value={draft.hideAfterDays}
-            onChange={e => setDraft(prev => ({ ...prev, hideAfterDays: e.target.value }))}
-            title="Hide from the Home banner this many days after the date passes"
           />
           <button style={s.addBtn} onClick={addCountdown}>Add</button>
         </div>
