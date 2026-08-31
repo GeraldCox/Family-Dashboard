@@ -255,6 +255,7 @@ const s = {
     position: 'relative', width: 'min(52vh, 60vw)', height: 'min(52vh, 60vw)',
     maxWidth: 420, maxHeight: 420, minWidth: 220, minHeight: 220,
     display: 'flex', alignItems: 'center', justifyContent: 'center',
+    containerType: 'inline-size',
   },
   ring: {},
   ringProgress: { transition: 'stroke-dashoffset 1s linear' },
@@ -262,7 +263,10 @@ const s = {
     position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center',
   },
   bigTime: {
-    fontSize: 'clamp(56px, 17vh, 200px)', fontWeight: 700, lineHeight: 1,
+    // Sized off the ring's own container width (not vh) so the digits stay
+    // inscribed in the circle regardless of viewport aspect ratio — vh-based
+    // sizing could outgrow the ring once its 420px width cap kicked in.
+    fontSize: 'clamp(44px, 30cqw, 150px)', fontWeight: 700, lineHeight: 1,
     color: 'var(--text-1)', fontFamily: 'var(--font-heading)', fontVariantNumeric: 'tabular-nums',
   },
   bigTimeDone: {
