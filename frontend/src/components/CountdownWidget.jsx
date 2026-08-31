@@ -46,7 +46,12 @@ export default function CountdownWidget() {
     update();
     el.addEventListener('scroll', update, { passive: true });
     window.addEventListener('resize', update);
+    // Re-measure once this element's actual size settles, in case the
+    // initial measurement ran before sibling flex-shrink math finished.
+    const ro = new ResizeObserver(update);
+    ro.observe(el);
     return () => {
+      ro.disconnect();
       el.removeEventListener('scroll', update);
       window.removeEventListener('resize', update);
     };

@@ -43,7 +43,14 @@ function ForecastStrip({ daily }) {
     update();
     el.addEventListener('scroll', update, { passive: true });
     window.addEventListener('resize', update);
+    // The initial measurement can run before sibling flex-shrink math has
+    // settled (e.g. current-weather/forecast still resolving their widths),
+    // under-detecting overflow until the next scroll/resize. A ResizeObserver
+    // re-measures as soon as this element's actual size settles.
+    const ro = new ResizeObserver(update);
+    ro.observe(el);
     return () => {
+      ro.disconnect();
       el.removeEventListener('scroll', update);
       window.removeEventListener('resize', update);
     };
