@@ -34,8 +34,12 @@ function PersonAvatars({ peopleIds, personMap }) {
             key={id}
             person={person}
             size={25}
-            ring="var(--bg)"
-            style={{ marginLeft: i === 0 ? 0 : -8, zIndex: peopleIds.length - i }}
+            solid
+            style={{
+              border: '1.5px solid var(--bg)',
+              marginLeft: i === 0 ? 0 : -8,
+              zIndex: peopleIds.length - i,
+            }}
             title={person.name}
           />
         );

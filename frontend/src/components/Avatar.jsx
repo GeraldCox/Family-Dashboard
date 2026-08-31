@@ -2,7 +2,9 @@
 // always inside a circle outlined in their own color. `ring` lets a caller
 // override the outline (e.g. the Routines stack uses the page background to
 // visually separate overlapping avatars instead of clashing color rings).
-export default function Avatar({ person, size = 36, ring, style, ...rest }) {
+// `solid` switches the initials fallback to a solid color fill with white
+// text (the Routines stack's original look) instead of the tinted default.
+export default function Avatar({ person, size = 36, ring, solid, style, ...rest }) {
   const color = person?.color || 'var(--text-3)';
   const base = {
     width: size, height: size, borderRadius: '50%', flexShrink: 0, boxSizing: 'border-box',
@@ -24,7 +26,9 @@ export default function Avatar({ person, size = 36, ring, style, ...rest }) {
   return (
     <div
       style={{
-        ...base, background: color + '22', color,
+        ...base,
+        background: solid ? color : color + '22',
+        color: solid ? 'white' : color,
         fontWeight: 700, fontSize: Math.round(size * 0.41),
         ...style,
       }}
