@@ -179,7 +179,22 @@ const DEFAULT_PHOTO_SETTINGS = { inactivityMinutes: 5, transitionSeconds: 6, bri
 // Sidebar nav items the household can hide from the "General" editor tab.
 // Anything not in this list (home, calendar, chores, etc.) always shows.
 const TOGGLEABLE_NAV_ITEMS = ['chores', 'tasks', 'meals', 'shopping', 'homeschool', 'beach', 'timer'];
-const DEFAULT_GENERAL_SETTINGS = { hiddenNavItems: [], countdownHideAfterDays: 1 };
+// Time of day by which each routine period's steps should be done, used to
+// flag an incomplete routine as overdue and to auto-collapse a completed one.
+const DEFAULT_ROUTINE_TIME_CUTOFFS = { morning: '11:00', afternoon: '17:00', evening: '21:00', bedtime: '23:59' };
+const DEFAULT_GENERAL_SETTINGS = { hiddenNavItems: [], countdownHideAfterDays: 1, routineTimeCutoffs: DEFAULT_ROUTINE_TIME_CUTOFFS };
+const HHMM_RE = /^([01]\d|2[0-3]):[0-5]\d$/;
+
+function parseRoutineTimeCutoffs(input, fallback) {
+  if (!input || typeof input !== 'object') return fallback;
+  const next = { ...fallback };
+  for (const period of Object.keys(DEFAULT_ROUTINE_TIME_CUTOFFS)) {
+    if (typeof input[period] === 'string' && HHMM_RE.test(input[period])) {
+      next[period] = input[period];
+    }
+  }
+  return next;
+}
 
 // Weather location: { lat, lon, label } once set via the General tab. Null
 // fields mean "not yet configured" — /api/weather falls back to the
@@ -2498,7 +2513,7 @@ app.get('/api/settings/general', (req, res) => {
 
 app.post('/api/settings/general', (req, res) => {
   const current = readJSON(FILES.generalSettings, DEFAULT_GENERAL_SETTINGS);
-  const { hiddenNavItems, countdownHideAfterDays } = req.body;
+  const { hiddenNavItems, countdownHideAfterDays, routineTimeCutoffs } = req.body;
   const parsedHideAfterDays = Number(countdownHideAfterDays);
   const settings = {
     hiddenNavItems: Array.isArray(hiddenNavItems)
@@ -2507,6 +2522,7 @@ app.post('/api/settings/general', (req, res) => {
     countdownHideAfterDays: Number.isFinite(parsedHideAfterDays) && parsedHideAfterDays >= 0
       ? parsedHideAfterDays
       : current.countdownHideAfterDays,
+    routineTimeCutoffs: parseRoutineTimeCutoffs(routineTimeCutoffs, current.routineTimeCutoffs || DEFAULT_ROUTINE_TIME_CUTOFFS),
   };
   writeJSON(FILES.generalSettings, settings);
   res.json({ ok: true, settings });

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { api } from '../api';
 import Icon from './Icon';
 import Avatar from './Avatar';
@@ -16,6 +16,26 @@ const TIME_ICONS = {
   evening: 'sunrise',
   bedtime: 'moon',
 };
+const DEFAULT_ROUTINE_TIME_CUTOFFS = { morning: '11:00', afternoon: '17:00', evening: '21:00', bedtime: '23:59' };
+const AUTO_COLLAPSE_CHECK_MS = 60000;
+
+function toDateKey(d) {
+  return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
+}
+
+function isPastCutoffTime(timeOfDay, cutoffs) {
+  const cutoff = cutoffs?.[timeOfDay];
+  if (!cutoff) return false;
+  const [h, m] = cutoff.split(':').map(Number);
+  const now = new Date();
+  return now.getHours() * 60 + now.getMinutes() >= h * 60 + m;
+}
+
+function routineStatus(routine) {
+  const total = routine.steps.length;
+  const done = routine.steps.filter(st => st.done).length;
+  return { total, done, isComplete: total > 0 && done === total };
+}
 
 function PersonAvatars({ peopleIds, personMap }) {
   if (!peopleIds || peopleIds.length === 0) return null;
@@ -48,20 +68,19 @@ function PersonAvatars({ peopleIds, personMap }) {
   );
 }
 
-function RoutineBubble({ routine, personMap, expanded, onToggleExpand, onToggleStep }) {
-  const total = routine.steps.length;
-  const done = routine.steps.filter(st => st.done).length;
+function RoutineBubble({ routine, personMap, expanded, onToggleExpand, onToggleStep, isPastCutoff }) {
+  const { total, done, isComplete } = routineStatus(routine);
   const pct = total === 0 ? 0 : Math.round((done / total) * 100);
-  const isComplete = total > 0 && done === total;
+  const isOverdue = total > 0 && !isComplete && isPastCutoff;
 
   return (
-    <div style={{ ...s.bubble, ...(isComplete ? s.bubbleComplete : {}) }}>
+    <div style={{ ...s.bubble, ...(isComplete ? s.bubbleComplete : isOverdue ? s.bubbleOverdue : {}) }}>
       <div style={s.bubbleHead} onClick={onToggleExpand}>
         <PersonAvatars peopleIds={routine.people} personMap={personMap} />
-        <div style={{ ...s.bubbleTitle, ...(isComplete ? s.bubbleTitleComplete : {}) }}>{routine.title}</div>
+        <div style={{ ...s.bubbleTitle, ...(isComplete ? s.bubbleTitleComplete : isOverdue ? s.bubbleTitleOverdue : {}) }}>{routine.title}</div>
         <div style={s.progressWrap}>
           <div style={s.progressTrack}>
-            <div style={{ ...s.progressFill, width: `${pct}%`, background: isComplete ? 'var(--green)' : 'var(--blue)' }} />
+            <div style={{ ...s.progressFill, width: `${pct}%`, background: isComplete ? 'var(--green)' : isOverdue ? 'var(--red)' : 'var(--blue)' }} />
           </div>
           <div style={s.progressLabel}>{done}/{total}</div>
         </div>
@@ -75,7 +94,7 @@ function RoutineBubble({ routine, personMap, expanded, onToggleExpand, onToggleS
               <div style={{ ...s.stepCircle, ...(step.done ? s.stepCircleDone : {}) }}>
                 {step.done && <Icon name="check" size={15} />}
               </div>
-              <div style={{ ...s.stepName, ...(step.done ? s.stepNameDone : {}) }}>{step.name}</div>
+              <div style={{ ...s.stepName, ...(step.done ? s.stepNameDone : isOverdue ? s.stepNameOverdue : {}) }}>{step.name}</div>
             </div>
           ))}
           {total === 0 && <div style={s.noSteps}>No steps yet</div>}
@@ -89,8 +108,18 @@ export default function Routines() {
   const [routines, setRoutines] = useState(null);
   const [personMap, setPersonMap] = useState({});
   // null until the first load resolves, then a Set of expanded routine ids —
-  // seeded with every id so bubbles start expanded instead of collapsed.
+  // seeded with every id so bubbles start expanded instead of collapsed
+  // (except ones already complete-and-past-cutoff, to avoid a flash-open).
   const [expandedIds, setExpandedIds] = useState(null);
+  const [timeCutoffs, setTimeCutoffs] = useState(null);
+  // routine:date keys already auto-collapsed, so a manual re-expand sticks
+  // instead of the next periodic check immediately re-collapsing it.
+  const autoCollapsedRef = useRef(new Set());
+  const seededRef = useRef(false);
+  const routinesRef = useRef(null);
+  const cutoffsRef = useRef(null);
+  routinesRef.current = routines;
+  cutoffsRef.current = timeCutoffs;
 
   useEffect(() => {
     refresh();
@@ -99,15 +128,57 @@ export default function Routines() {
       (res.people || []).forEach(p => { map[p.id] = p; });
       setPersonMap(map);
     }).catch(console.error);
+    api.getGeneralSettings().then(res => setTimeCutoffs(res.routineTimeCutoffs || DEFAULT_ROUTINE_TIME_CUTOFFS)).catch(console.error);
   }, []);
 
   function refresh() {
-    api.getRoutines().then(res => {
-      const list = res.routines || [];
-      setRoutines(list);
-      setExpandedIds(prev => prev ?? new Set(list.map(r => r.id)));
-    }).catch(console.error);
+    api.getRoutines().then(res => setRoutines(res.routines || [])).catch(console.error);
   }
+
+  // One-time initial seed, once both routines and cutoffs are loaded.
+  useEffect(() => {
+    if (seededRef.current || !routines || !timeCutoffs) return;
+    seededRef.current = true;
+    const todayKey = toDateKey(new Date());
+    const next = new Set();
+    routines.forEach(r => {
+      const { isComplete } = routineStatus(r);
+      if (isComplete && isPastCutoffTime(r.timeOfDay, timeCutoffs)) {
+        autoCollapsedRef.current.add(`${r.id}:${todayKey}`);
+      } else {
+        next.add(r.id);
+      }
+    });
+    setExpandedIds(next);
+  }, [routines, timeCutoffs]);
+
+  // Ambient periodic check — deliberately not tied to `routines` changing,
+  // so finishing a routine's last step never immediately collapses it out
+  // from under the person checking it off. Reads the latest data via refs.
+  useEffect(() => {
+    const interval = setInterval(() => {
+      const list = routinesRef.current;
+      const cutoffs = cutoffsRef.current;
+      if (!list || !cutoffs) return;
+      const todayKey = toDateKey(new Date());
+      setExpandedIds(prev => {
+        if (!prev) return prev;
+        let changed = false;
+        const next = new Set(prev);
+        list.forEach(r => {
+          const { isComplete } = routineStatus(r);
+          const key = `${r.id}:${todayKey}`;
+          if (isComplete && isPastCutoffTime(r.timeOfDay, cutoffs) && next.has(r.id) && !autoCollapsedRef.current.has(key)) {
+            next.delete(r.id);
+            autoCollapsedRef.current.add(key);
+            changed = true;
+          }
+        });
+        return changed ? next : prev;
+      });
+    }, AUTO_COLLAPSE_CHECK_MS);
+    return () => clearInterval(interval);
+  }, []);
 
   function toggleExpand(id) {
     setExpandedIds(prev => {
@@ -139,6 +210,9 @@ export default function Routines() {
     return <div style={s.empty}>No routines yet — add one in the Edit tab</div>;
   }
 
+  // expandedIds seeding waits on the separate timeCutoffs fetch too.
+  if (!expandedIds) return <div style={s.empty}>Loading routines…</div>;
+
   const groups = TIME_ORDER
     .map(tod => ({ tod, items: routines.filter(r => r.timeOfDay === tod) }))
     .filter(g => g.items.length > 0);
@@ -160,6 +234,7 @@ export default function Routines() {
                 expanded={expandedIds.has(routine.id)}
                 onToggleExpand={() => toggleExpand(routine.id)}
                 onToggleStep={toggleStep}
+                isPastCutoff={isPastCutoffTime(group.tod, timeCutoffs)}
               />
             ))}
           </div>
@@ -188,6 +263,10 @@ const s = {
   bubbleComplete: {
     background: 'var(--green-bg)', borderColor: 'var(--green)',
   },
+  // Time window passed with steps still unchecked.
+  bubbleOverdue: {
+    background: 'var(--red-bg)', borderColor: 'var(--red)',
+  },
   bubbleHead: {
     display: 'flex', alignItems: 'center', gap: 8, padding: '10px 12px', cursor: 'pointer',
   },
@@ -195,9 +274,11 @@ const s = {
     flex: 1, fontSize: 15, fontWeight: 700, color: 'var(--text-1)', minWidth: 0,
     overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
   },
-  // --green-bg is a fixed light mint regardless of theme, so --text-1 (near
-  // white in dark mode) nearly disappears on it once a bubble completes.
+  // --green-bg/--red-bg are fixed light colors regardless of theme, so
+  // --text-1 (near white in dark mode) nearly disappears on either once a
+  // bubble completes or goes overdue.
   bubbleTitleComplete: { color: 'var(--green-text)' },
+  bubbleTitleOverdue: { color: 'var(--red-text)' },
 
   avatarStack: { display: 'flex', alignItems: 'center', flexShrink: 0 },
   avatarCircle: {
@@ -235,5 +316,6 @@ const s = {
   stepCircleDone: { background: 'var(--green)', borderColor: 'var(--green)' },
   stepName: { fontSize: 15, color: 'var(--text-1)', flex: 1 },
   stepNameDone: { color: 'var(--text-3)', textDecoration: 'line-through' },
+  stepNameOverdue: { color: 'var(--red-text)' },
   noSteps: { fontSize: 14, color: 'var(--text-3)', fontStyle: 'italic', padding: '4px 4px' },
 };

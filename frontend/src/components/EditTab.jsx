@@ -760,6 +760,7 @@ function capitalize(str) {
 }
 
 const EMPTY_ROUTINE_DRAFT = { title: '', timeOfDay: 'morning', people: [], steps: [''] };
+const DEFAULT_ROUTINE_TIME_CUTOFFS = { morning: '11:00', afternoon: '17:00', evening: '21:00', bedtime: '23:59' };
 
 function RoutinesEditor({ isMobile }) {
   const [routines, setRoutines] = useState(null);
@@ -768,11 +769,28 @@ function RoutinesEditor({ isMobile }) {
   const [editingId, setEditingId] = useState(null);
   const [editDraft, setEditDraft] = useState({ title: '', timeOfDay: 'morning', people: [] });
   const [stepDrafts, setStepDrafts] = useState({}); // routineId -> string
+  const [timeCutoffs, setTimeCutoffs] = useState(null);
+  const [savingCutoffs, setSavingCutoffs] = useState(false);
 
   useEffect(() => {
     refresh();
     api.people().then(res => setPeopleList((res.people || []).filter(p => p.id !== 'family'))).catch(console.error);
+    api.getGeneralSettings().then(res => setTimeCutoffs(res.routineTimeCutoffs || DEFAULT_ROUTINE_TIME_CUTOFFS)).catch(console.error);
   }, []);
+
+  function setCutoffDraft(period, value) {
+    setTimeCutoffs(prev => ({ ...prev, [period]: value }));
+  }
+
+  async function saveCutoffs() {
+    setSavingCutoffs(true);
+    try {
+      const res = await api.saveGeneralSettings({ routineTimeCutoffs: timeCutoffs });
+      setTimeCutoffs(res.settings.routineTimeCutoffs);
+    } finally {
+      setSavingCutoffs(false);
+    }
+  }
 
   function refresh() {
     api.getRoutines().then(res => setRoutines(res.routines || [])).catch(console.error);
@@ -898,6 +916,29 @@ function RoutinesEditor({ isMobile }) {
 
   return (
     <>
+      <div style={s.card}>
+        <div style={{ ...s.personName, display: 'flex', alignItems: 'center', gap: 8 }}><Icon name="timer" size={18} /> Time Windows</div>
+        <div style={{ ...s.emptySmall, marginBottom: 10 }}>
+          Complete-by time for each period. Past this time, an unfinished routine is flagged; a finished one collapses automatically.
+        </div>
+        <div style={{ ...s.addRow, ...(isMobile ? s.addRowMobile : {}), flexWrap: 'wrap' }}>
+          {ROUTINE_TIME_OPTIONS.map(t => (
+            <label key={t} style={s.cutoffLabel}>
+              {capitalize(t)}
+              <input
+                type="time"
+                style={s.dateInput}
+                value={timeCutoffs?.[t] || ''}
+                onChange={e => setCutoffDraft(t, e.target.value)}
+              />
+            </label>
+          ))}
+          <button style={s.addBtn} onClick={saveCutoffs} disabled={savingCutoffs || !timeCutoffs}>
+            {savingCutoffs ? 'Saving…' : 'Save'}
+          </button>
+        </div>
+      </div>
+
       <div style={s.card}>
         <div style={{ ...s.personName, display: 'flex', alignItems: 'center', gap: 8 }}><Icon name="plus" size={18} /> Add Routine</div>
         <div style={{ ...s.addRow, ...(isMobile ? s.addRowMobile : {}) }}>
@@ -2444,6 +2485,10 @@ const s = {
 
   toggleCheckbox: { width: 20, height: 20, cursor: 'pointer', flexShrink: 0, marginLeft: 'auto' },
 
+  cutoffLabel: {
+    display: 'flex', flexDirection: 'column', gap: 4, fontSize: 13,
+    color: 'var(--text-2)', fontWeight: 600,
+  },
   peopleCheckboxRow: {
     display: 'flex', flexWrap: 'wrap', gap: 12, marginBottom: 14,
   },
