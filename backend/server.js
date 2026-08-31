@@ -36,6 +36,7 @@ const FILES = {
   homeschool: path.join(DATA_DIR, 'homeschool.json'),
   mealieSettings: path.join(DATA_DIR, 'mealie-settings.json'),
   generalSettings: path.join(DATA_DIR, 'general-settings.json'),
+  weatherLocation: path.join(DATA_DIR, 'weather-location.json'),
 };
 
 // ── Homeschool defaults ───────────────────────────────────────────────────────
@@ -178,6 +179,11 @@ const DEFAULT_PHOTO_SETTINGS = { inactivityMinutes: 5, transitionSeconds: 6, bri
 // Anything not in this list (home, calendar, chores, etc.) always shows.
 const TOGGLEABLE_NAV_ITEMS = ['homeschool', 'beach', 'timer'];
 const DEFAULT_GENERAL_SETTINGS = { hiddenNavItems: [] };
+
+// Weather location: { lat, lon, label } once set via the General tab. Null
+// fields mean "not yet configured" — /api/weather falls back to the
+// WEATHER_LAT/WEATHER_LON/WEATHER_LOCATION_LABEL env vars, then NYC.
+const DEFAULT_WEATHER_LOCATION = { lat: null, lon: null, label: '' };
 
 // Get a free key at https://spoonacular.com/food-api
 const SPOONACULAR_API_KEY = process.env.SPOONACULAR_API_KEY || '';
@@ -497,6 +503,10 @@ function initDefaults() {
 
   if (!fs.existsSync(FILES.generalSettings)) {
     writeJSON(FILES.generalSettings, DEFAULT_GENERAL_SETTINGS);
+  }
+
+  if (!fs.existsSync(FILES.weatherLocation)) {
+    writeJSON(FILES.weatherLocation, DEFAULT_WEATHER_LOCATION);
   }
 }
 
@@ -1251,17 +1261,58 @@ app.post('/api/calendars', (req, res) => {
 });
 
 // Weather (Open-Meteo, no API key needed)
+function getWeatherLocation() {
+  const stored = readJSON(FILES.weatherLocation, DEFAULT_WEATHER_LOCATION);
+  return {
+    lat: stored.lat ?? process.env.WEATHER_LAT ?? '40.7128',
+    lon: stored.lon ?? process.env.WEATHER_LON ?? '-74.0060',
+    label: stored.label || process.env.WEATHER_LOCATION_LABEL || '',
+  };
+}
+
 app.get('/api/weather', async (req, res) => {
   try {
-    const lat = process.env.WEATHER_LAT || '40.7128';
-    const lon = process.env.WEATHER_LON || '-74.0060';
+    const { lat, lon, label } = getWeatherLocation();
     const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,weathercode,windspeed_10m,relative_humidity_2m&daily=temperature_2m_max,temperature_2m_min,weathercode,sunrise,sunset&temperature_unit=fahrenheit&wind_speed_unit=mph&timezone=auto&forecast_days=6`;
     const r = await fetch(url);
     const data = await r.json();
-    res.json({ ...data, location: process.env.WEATHER_LOCATION_LABEL || '' });
+    res.json({ ...data, location: label });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
+});
+
+app.get('/api/weather/geocode', async (req, res) => {
+  try {
+    const q = (req.query.q || '').trim();
+    if (!q) return res.status(400).json({ error: 'Missing search query' });
+    const url = `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(q)}&count=5&language=en&format=json`;
+    const r = await fetch(url);
+    const data = await r.json();
+    const results = (data.results || []).map(place => ({
+      label: [place.name, place.admin1, place.country].filter(Boolean).join(', '),
+      lat: place.latitude,
+      lon: place.longitude,
+    }));
+    res.json({ results });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.get('/api/settings/weather-location', (req, res) => {
+  res.json(readJSON(FILES.weatherLocation, DEFAULT_WEATHER_LOCATION));
+});
+
+app.post('/api/settings/weather-location', (req, res) => {
+  const { lat, lon, label } = req.body;
+  const settings = {
+    lat: typeof lat === 'number' ? lat : null,
+    lon: typeof lon === 'number' ? lon : null,
+    label: typeof label === 'string' ? label : '',
+  };
+  writeJSON(FILES.weatherLocation, settings);
+  res.json({ ok: true, settings });
 });
 
 // Tides (NOAA CO-OPS, no API key needed). Configure your own beaches/stations

@@ -128,10 +128,51 @@ function GeneralEditor({ isMobile, onGeneralSettingsSaved }) {
   const [hidden, setHidden] = useState(null);
   const [savingId, setSavingId] = useState(null);
   const [themeOverride, setThemeOverride] = useState(() => localStorage.getItem('themeOverride') || 'auto');
+  const [location, setLocation] = useState(null);
+  const [locationQuery, setLocationQuery] = useState('');
+  const [locationResults, setLocationResults] = useState(null);
+  const [searchingLocation, setSearchingLocation] = useState(false);
+  const [savingLocation, setSavingLocation] = useState(null);
+  const [locationError, setLocationError] = useState('');
 
   useEffect(() => {
     api.getGeneralSettings().then(res => setHidden(res.hiddenNavItems || [])).catch(console.error);
   }, []);
+
+  useEffect(() => {
+    api.getWeatherLocation().then(setLocation).catch(console.error);
+  }, []);
+
+  async function searchLocation() {
+    if (!locationQuery.trim()) return;
+    setSearchingLocation(true);
+    setLocationError('');
+    setLocationResults(null);
+    try {
+      const res = await api.geocodeLocation(locationQuery.trim());
+      setLocationResults(res.results || []);
+    } catch (err) {
+      console.error(err);
+      setLocationError('Search failed.');
+    } finally {
+      setSearchingLocation(false);
+    }
+  }
+
+  async function selectLocation(result) {
+    setSavingLocation(result.label);
+    try {
+      const res = await api.saveWeatherLocation(result.lat, result.lon, result.label);
+      setLocation(res.settings);
+      setLocationResults(null);
+      setLocationQuery('');
+    } catch (err) {
+      console.error(err);
+      setLocationError('Could not save that location.');
+    } finally {
+      setSavingLocation(null);
+    }
+  }
 
   async function toggleNavItem(id) {
     const next = hidden.includes(id) ? hidden.filter(x => x !== id) : [...hidden, id];
@@ -193,6 +234,46 @@ function GeneralEditor({ isMobile, onGeneralSettingsSaved }) {
             </button>
           ))}
         </div>
+      </div>
+
+      <div style={s.card}>
+        <div style={{ ...s.personName, display: 'flex', alignItems: 'center', gap: 8 }}><Icon name="map-pin" size={17} /> Location for Weather</div>
+        <div style={{ ...s.emptySmall, marginBottom: 10 }}>
+          {location?.lat != null
+            ? <>Currently: <strong style={{ color: 'var(--text-1)' }}>{location.label || `${location.lat}, ${location.lon}`}</strong></>
+            : 'Not set yet — the weather widget is using a fallback location. Search below to set yours.'}
+        </div>
+        <div style={{ ...s.addRow, ...(isMobile ? s.addRowMobile : {}) }}>
+          <input
+            style={s.nameInput}
+            type="text"
+            placeholder="City, State (e.g. Brooklyn, NY)"
+            value={locationQuery}
+            onChange={e => setLocationQuery(e.target.value)}
+            onKeyDown={e => { if (e.key === 'Enter') searchLocation(); }}
+          />
+          <button style={s.addBtn} onClick={searchLocation} disabled={searchingLocation || !locationQuery.trim()}>
+            {searchingLocation ? 'Searching…' : 'Search'}
+          </button>
+        </div>
+        {locationError && <div style={s.errorText}>{locationError}</div>}
+        {locationResults && (
+          <div style={{ ...s.list, marginTop: 10 }}>
+            {locationResults.length === 0 && <div style={s.emptySmall}>No matches found.</div>}
+            {locationResults.map((r, i) => (
+              <div key={i} style={s.row}>
+                <span style={s.rowName}>{r.label}</span>
+                <button
+                  style={s.addBtn}
+                  onClick={() => selectLocation(r)}
+                  disabled={savingLocation !== null}
+                >
+                  {savingLocation === r.label ? 'Saving…' : 'Use this'}
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     </>
   );

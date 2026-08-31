@@ -31,6 +31,9 @@ async function del(path) {
 export const api = {
   events: (year, month) => get(`/events?year=${year}&month=${month}`),
   weather: () => get('/weather'),
+  geocodeLocation: (q) => get(`/weather/geocode?q=${encodeURIComponent(q)}`),
+  getWeatherLocation: () => get('/settings/weather-location'),
+  saveWeatherLocation: (lat, lon, label) => post('/settings/weather-location', { lat, lon, label }),
   tides: () => get('/tides'),
   chores: () => get('/chores'),
   toggleChore: (personId, choreId) => post('/chores/toggle', { personId, choreId }),
