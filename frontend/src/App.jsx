@@ -28,6 +28,12 @@ const VIEW_OPTIONS = [
   { id: '2week', label: '2-Week' },
   { id: 'month', label: 'Month' },
 ];
+const VALID_CALENDAR_VIEWS = VIEW_OPTIONS.map(o => o.id);
+
+function getStoredCalendarView() {
+  const stored = localStorage.getItem('calendarView');
+  return VALID_CALENDAR_VIEWS.includes(stored) ? stored : 'month';
+}
 
 function CalendarTab({ view, onViewChange, filters, onToggleFilter, sources, refreshToken, onAddEvent }) {
   const { isMobile } = useScreenSize();
@@ -75,7 +81,7 @@ function CalendarTab({ view, onViewChange, filters, onToggleFilter, sources, ref
 
 export default function App() {
   const [tab, setTab] = useState('home');
-  const [calendarView, setCalendarView] = useState('month');
+  const [calendarView, setCalendarView] = useState(getStoredCalendarView);
   const [calendarFilters, setCalendarFilters] = useState({});
   const [calendarSources, setCalendarSources] = useState([]);
   const [calendarRefreshToken, setCalendarRefreshToken] = useState(0);
@@ -138,6 +144,11 @@ export default function App() {
     setCalendarFilters(prev => ({ ...prev, [id]: prev[id] === false ? true : false }));
   }
 
+  function changeCalendarView(view) {
+    localStorage.setItem('calendarView', view);
+    setCalendarView(view);
+  }
+
   return (
     <div style={s.app}>
       {showScreensaver && (
@@ -168,7 +179,7 @@ export default function App() {
           {tab === 'calendar' && (
             <CalendarTab
               view={calendarView}
-              onViewChange={setCalendarView}
+              onViewChange={changeCalendarView}
               filters={calendarFilters}
               onToggleFilter={toggleFilter}
               sources={calendarSources}
