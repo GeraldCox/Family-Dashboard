@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { api } from '../api';
 import Icon from './Icon';
 
@@ -15,6 +15,8 @@ export function daysUntil(dateStr) {
 
 export default function CountdownWidget() {
   const [countdowns, setCountdowns] = useState([]);
+  const scrollRef = useRef(null);
+  const [canScroll, setCanScroll] = useState({ left: false, right: false });
 
   useEffect(() => {
     function refresh() {
@@ -25,38 +27,68 @@ export default function CountdownWidget() {
     return () => clearInterval(id);
   }, []);
 
-  if (countdowns.length === 0) return null;
+  const visible = countdowns.filter(cd => daysUntil(cd.date) >= -(cd.hideAfterDays ?? 1));
+
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    function update() {
+      setCanScroll({
+        left: el.scrollLeft > 2,
+        right: el.scrollLeft < el.scrollWidth - el.clientWidth - 2,
+      });
+    }
+    update();
+    el.addEventListener('scroll', update, { passive: true });
+    window.addEventListener('resize', update);
+    return () => {
+      el.removeEventListener('scroll', update);
+      window.removeEventListener('resize', update);
+    };
+  }, [visible.length]);
+
+  if (visible.length === 0) return null;
 
   return (
-    <div style={s.strip} className="no-scrollbar">
-      {countdowns.map(cd => {
-        const days = daysUntil(cd.date);
-        return (
-          <div key={cd.id} style={{ ...s.card, borderLeft: `4px solid ${cd.color}` }}>
-            <div style={s.emoji}>{cd.emoji}</div>
-            <div style={s.name} title={cd.name}>{cd.name}</div>
-            {days > 0 && (
-              <>
-                <div style={{ ...s.days, color: cd.color }}>{days}</div>
-                <div style={s.label}>days to go</div>
-              </>
-            )}
-            {days === 0 && <div style={s.today}><Icon name="party-popper" size={15} /> Today!</div>}
-            {days < 0 && <div style={s.done}><Icon name="check" size={14} /> Done</div>}
-          </div>
-        );
-      })}
+    <div style={s.wrap}>
+      <div ref={scrollRef} style={s.strip} className="no-scrollbar">
+        {visible.map(cd => {
+          const days = daysUntil(cd.date);
+          return (
+            <div key={cd.id} style={{ ...s.card, borderLeft: `4px solid ${cd.color}` }}>
+              <div style={s.emoji}>{cd.emoji}</div>
+              <div style={s.name} title={cd.name}>{cd.name}</div>
+              {days > 0 && (
+                <>
+                  <div style={{ ...s.days, color: cd.color }}>{days}</div>
+                  <div style={s.label}>days to go</div>
+                </>
+              )}
+              {days === 0 && <div style={s.today}><Icon name="party-popper" size={15} /> Today!</div>}
+              {days < 0 && <div style={s.done}><Icon name="check" size={14} /> Done</div>}
+            </div>
+          );
+        })}
+      </div>
+      {canScroll.left && <div style={{ ...s.fade, ...s.fadeLeft }} />}
+      {canScroll.right && <div style={{ ...s.fade, ...s.fadeRight }} />}
     </div>
   );
 }
 
 const s = {
+  wrap: { position: 'relative', flex: 1, minWidth: 0, height: '100%' },
   strip: {
     display: 'flex', flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-start', gap: 8,
-    flex: 1, minWidth: 0, height: '100%',
+    height: '100%', width: '100%',
     overflowX: 'auto', overflowY: 'hidden',
     scrollbarWidth: 'none',
   },
+  fade: {
+    position: 'absolute', top: 0, bottom: 0, width: 28, pointerEvents: 'none',
+  },
+  fadeLeft: { left: 0, background: 'linear-gradient(to right, var(--surface), transparent)' },
+  fadeRight: { right: 0, background: 'linear-gradient(to left, var(--surface), transparent)' },
   card: {
     flexShrink: 0, width: 160, height: 86,
     background: 'var(--bg)', borderRadius: 10,

@@ -2504,8 +2504,13 @@ app.get('/api/countdowns', (req, res) => {
   res.json({ countdowns: sorted });
 });
 
+function parseHideAfterDays(value, fallback) {
+  const n = Number(value);
+  return Number.isFinite(n) && n >= 0 ? n : fallback;
+}
+
 app.post('/api/countdowns/add', (req, res) => {
-  const { name, emoji, date, color } = req.body;
+  const { name, emoji, date, color, hideAfterDays } = req.body;
   const data = readJSON(FILES.countdowns, { countdowns: [] });
   const countdown = {
     id: `cd${Date.now()}`,
@@ -2513,6 +2518,7 @@ app.post('/api/countdowns/add', (req, res) => {
     emoji: emoji || '📅',
     date,
     color: color || '#3b82f6',
+    hideAfterDays: parseHideAfterDays(hideAfterDays, 1),
   };
   data.countdowns.push(countdown);
   writeJSON(FILES.countdowns, data);
@@ -2520,7 +2526,7 @@ app.post('/api/countdowns/add', (req, res) => {
 });
 
 app.post('/api/countdowns/update', (req, res) => {
-  const { id, name, emoji, date, color } = req.body;
+  const { id, name, emoji, date, color, hideAfterDays } = req.body;
   const data = readJSON(FILES.countdowns, { countdowns: [] });
   const countdown = data.countdowns.find(c => c.id === id);
   if (!countdown) return res.status(404).json({ error: 'Countdown not found' });
@@ -2528,6 +2534,7 @@ app.post('/api/countdowns/update', (req, res) => {
   if (emoji !== undefined) countdown.emoji = emoji;
   if (date !== undefined) countdown.date = date;
   if (color !== undefined) countdown.color = color;
+  if (hideAfterDays !== undefined) countdown.hideAfterDays = parseHideAfterDays(hideAfterDays, countdown.hideAfterDays ?? 1);
   writeJSON(FILES.countdowns, data);
   res.json({ ok: true, countdown });
 });

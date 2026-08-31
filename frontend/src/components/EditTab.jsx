@@ -1565,11 +1565,13 @@ function CountdownPreviewCard({ draft }) {
   );
 }
 
+const DEFAULT_COUNTDOWN_HIDE_AFTER_DAYS = 1;
+
 function CountdownsEditor({ isMobile }) {
   const [countdowns, setCountdowns] = useState(null);
-  const [draft, setDraft] = useState({ emoji: '', name: '', date: '', color: DEFAULT_COUNTDOWN_COLOR });
+  const [draft, setDraft] = useState({ emoji: '', name: '', date: '', color: DEFAULT_COUNTDOWN_COLOR, hideAfterDays: DEFAULT_COUNTDOWN_HIDE_AFTER_DAYS });
   const [editingId, setEditingId] = useState(null);
-  const [editDraft, setEditDraft] = useState({ emoji: '', name: '', date: '', color: DEFAULT_COUNTDOWN_COLOR });
+  const [editDraft, setEditDraft] = useState({ emoji: '', name: '', date: '', color: DEFAULT_COUNTDOWN_COLOR, hideAfterDays: DEFAULT_COUNTDOWN_HIDE_AFTER_DAYS });
 
   useEffect(() => { refresh(); }, []);
 
@@ -1579,19 +1581,19 @@ function CountdownsEditor({ isMobile }) {
 
   async function addCountdown() {
     if (!draft.name.trim() || !draft.date) return;
-    await api.addCountdown(draft.name.trim(), draft.emoji.trim() || '📅', draft.date, draft.color);
-    setDraft({ emoji: '', name: '', date: '', color: DEFAULT_COUNTDOWN_COLOR });
+    await api.addCountdown(draft.name.trim(), draft.emoji.trim() || '📅', draft.date, draft.color, Number(draft.hideAfterDays));
+    setDraft({ emoji: '', name: '', date: '', color: DEFAULT_COUNTDOWN_COLOR, hideAfterDays: DEFAULT_COUNTDOWN_HIDE_AFTER_DAYS });
     refresh();
   }
 
   function startEdit(cd) {
     setEditingId(cd.id);
-    setEditDraft({ emoji: cd.emoji, name: cd.name, date: cd.date, color: cd.color });
+    setEditDraft({ emoji: cd.emoji, name: cd.name, date: cd.date, color: cd.color, hideAfterDays: cd.hideAfterDays ?? DEFAULT_COUNTDOWN_HIDE_AFTER_DAYS });
   }
 
   async function saveEdit() {
     if (!editDraft.name.trim() || !editDraft.date) return;
-    await api.updateCountdown(editingId, editDraft.name.trim(), editDraft.emoji.trim() || '📅', editDraft.date, editDraft.color);
+    await api.updateCountdown(editingId, editDraft.name.trim(), editDraft.emoji.trim() || '📅', editDraft.date, editDraft.color, Number(editDraft.hideAfterDays));
     setEditingId(null);
     refresh();
   }
@@ -1637,6 +1639,14 @@ function CountdownsEditor({ isMobile }) {
                   value={editDraft.color}
                   onChange={e => setEditDraft(prev => ({ ...prev, color: e.target.value }))}
                 />
+                <input
+                  style={{ ...s.starsNumberInput, ...(isMobile ? s.fullWidthInput : {}) }}
+                  type="number"
+                  min={0}
+                  value={editDraft.hideAfterDays}
+                  onChange={e => setEditDraft(prev => ({ ...prev, hideAfterDays: e.target.value }))}
+                  title="Hide from the Home banner this many days after the date passes"
+                />
               </div>
               <div style={s.countdownEditFooter}>
                 <CountdownPreviewCard draft={editDraft} />
@@ -1651,6 +1661,9 @@ function CountdownsEditor({ isMobile }) {
               <span style={s.rowEmoji}>{cd.emoji}</span>
               <span style={s.rowName}>{cd.name}</span>
               <span style={s.rowReset}>{cd.date}</span>
+              <span style={s.rowReset} title="Days shown on the Home banner after the date passes">
+                +{cd.hideAfterDays ?? DEFAULT_COUNTDOWN_HIDE_AFTER_DAYS}d
+              </span>
               <div style={{ ...s.colorSwatchSmall, background: cd.color }} />
               <button style={s.trashBtn} onClick={() => startEdit(cd)} title="Edit countdown"><Icon name="pencil" size={16} /></button>
               <button style={s.trashBtn} onClick={() => removeCountdown(cd.id)} title="Delete countdown"><Icon name="trash" size={16} /></button>
@@ -1689,6 +1702,14 @@ function CountdownsEditor({ isMobile }) {
             type="color"
             value={draft.color}
             onChange={e => setDraft(prev => ({ ...prev, color: e.target.value }))}
+          />
+          <input
+            style={{ ...s.starsNumberInput, ...(isMobile ? s.fullWidthInput : {}) }}
+            type="number"
+            min={0}
+            value={draft.hideAfterDays}
+            onChange={e => setDraft(prev => ({ ...prev, hideAfterDays: e.target.value }))}
+            title="Hide from the Home banner this many days after the date passes"
           />
           <button style={s.addBtn} onClick={addCountdown}>Add</button>
         </div>
