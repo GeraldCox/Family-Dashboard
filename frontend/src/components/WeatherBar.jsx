@@ -50,20 +50,6 @@ export default function WeatherBar() {
     <div style={{ ...styles.bar, ...(isMobile ? styles.barMobile : {}) }}>
       {!isMobile && <CountdownWidget />}
 
-      <div style={{ ...styles.current, ...(isMobile ? styles.currentMobile : {}) }}>
-        <Icon name={w.icon} size={isMobile ? 34 : 42} style={{ color: w.tint }} />
-        <div>
-          <div style={styles.temp}>{Math.round(cur.temperature_2m)}°F</div>
-          <div style={styles.desc}>{w.label}{weather.location ? ` · ${weather.location}` : ''}</div>
-        </div>
-        {!isMobile && (
-          <div style={styles.meta}>
-            <span style={styles.metaItem}><Icon name="droplet" size={15} style={{ color: '#5a9fd4' }} /> {cur.relative_humidity_2m}%</span>
-            <span style={styles.metaItem}><Icon name="wind" size={15} style={{ color: 'var(--text-3)' }} /> {Math.round(cur.windspeed_10m)} mph</span>
-          </div>
-        )}
-      </div>
-
       {!isMobile && (
         <div style={styles.forecast}>
           {daily.time.slice(1, 6).map((date, i) => {
@@ -82,6 +68,20 @@ export default function WeatherBar() {
           })}
         </div>
       )}
+
+      <div style={{ ...styles.current, ...(isMobile ? styles.currentMobile : {}) }}>
+        <Icon name={w.icon} size={isMobile ? 34 : 42} style={{ color: w.tint }} />
+        <div>
+          <div style={styles.temp}>{Math.round(cur.temperature_2m)}°F</div>
+          <div style={styles.desc}>{w.label}{weather.location ? ` · ${weather.location}` : ''}</div>
+        </div>
+        {!isMobile && (
+          <div style={styles.meta}>
+            <span style={styles.metaItem}><Icon name="droplet" size={15} style={{ color: '#5a9fd4' }} /> {cur.relative_humidity_2m}%</span>
+            <span style={styles.metaItem}><Icon name="wind" size={15} style={{ color: 'var(--text-3)' }} /> {Math.round(cur.windspeed_10m)} mph</span>
+          </div>
+        )}
+      </div>
 
       <div style={styles.clockWrap}>
         <div style={{ ...styles.clock, ...(isMobile ? styles.clockMobile : {}) }}>
