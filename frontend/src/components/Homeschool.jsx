@@ -3,6 +3,7 @@ import { api } from '../api';
 import { useScreenSize } from '../hooks/useScreenSize';
 import { addDays, toDateStr, parseDateStr, isSameDate, formatDateRange, getForwardThreeWeekRanges } from '../utils/weekDates';
 import Icon from './Icon';
+import Avatar from './Avatar';
 
 const DAYS = [
   { key: 'Mon', name: 'Monday', offset: 1, color: 'var(--blue)' },
@@ -202,15 +203,12 @@ export default function Homeschool() {
               }}
               onClick={() => { setSelectedId(p.id); setAddingDate(null); }}
             >
-              <span
-                style={{
-                  ...s.tabAvatar,
-                  background: active ? 'rgba(255,255,255,0.25)' : p.color + '22',
-                  color: active ? 'white' : p.color,
-                }}
-              >
-                {p.name[0]}
-              </span>
+              <Avatar
+                person={p}
+                size={28}
+                ring={active ? 'white' : undefined}
+                style={active ? { background: 'rgba(255,255,255,0.25)', color: 'white' } : undefined}
+              />
               {p.name}
             </button>
           );

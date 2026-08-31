@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { api } from '../api';
 import { useScreenSize } from '../hooks/useScreenSize';
+import Avatar from './Avatar';
 
 const RESET_COLORS = {
   daily:  { bg: '#dbeafe', color: '#1e40af' },
@@ -168,9 +169,7 @@ export default function Chores() {
           <div key={person.id} style={{ ...s.column, ...(isMobile ? s.columnMobile : {}) }}>
             <div style={{ ...s.columnHeader, background: color + '14' }}>
               <div style={s.headerTop}>
-                <div style={{ ...s.avatar, background: color + '22', color: color }}>
-                  {person.name[0]}
-                </div>
+                <Avatar person={{ name: person.name, color, photoUrl: person.photoUrl }} size={39} />
                 <div style={s.personInfo}>
                   <div style={s.personName}>{person.name}</div>
                   <div style={s.doneCountText}>
@@ -288,11 +287,11 @@ export default function Chores() {
                     {visiblePeople.map(person => (
                       <button
                         key={person.id}
-                        style={{ ...s.pickerAvatar, background: person.color + '22', color: person.color }}
+                        style={s.pickerAvatarBtn}
                         onClick={() => claimChore(chore, person)}
                         title={`Claim as ${person.name}`}
                       >
-                        {person.name[0]}
+                        <Avatar person={person} size={30} />
                       </button>
                     ))}
                     <button style={s.pickerCancel} onClick={() => setClaimingId(null)}>✕</button>
@@ -348,7 +347,6 @@ const s = {
 
   columnHeader: { padding: '16px 16px 13px', flexShrink: 0 },
   headerTop: { display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 },
-  avatar: { width: 39, height: 39, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: 16, flexShrink: 0 },
   personInfo: { flex: 1, minWidth: 0 },
   personName: { fontSize: 16, fontWeight: 700, color: 'var(--text-1)' },
   doneCountText: { fontSize: 12, fontWeight: 600, color: 'var(--text-2)', marginTop: 2 },
@@ -425,10 +423,7 @@ const s = {
     background: 'var(--blue)', color: 'white', fontSize: 13, fontWeight: 600,
   },
   pickerRow: { display: 'flex', gap: 5, alignItems: 'center', flexWrap: 'wrap' },
-  pickerAvatar: {
-    width: 30, height: 30, borderRadius: '50%', display: 'flex', alignItems: 'center',
-    justifyContent: 'center', fontWeight: 700, fontSize: 13, flexShrink: 0,
-  },
+  pickerAvatarBtn: { background: 'none', border: 'none', padding: 0, cursor: 'pointer', flexShrink: 0 },
   pickerCancel: {
     width: 26, height: 26, borderRadius: '50%', display: 'flex', alignItems: 'center',
     justifyContent: 'center', fontSize: 12, color: 'var(--text-3)', background: 'var(--surface)',

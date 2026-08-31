@@ -4,6 +4,8 @@ import { useScreenSize } from '../hooks/useScreenSize';
 import { daysUntil } from './CountdownWidget';
 import { DOW_SHORT, DOW_LONG, toDateStr, parseDateStr, addDays, formatDateRange, isSameDate, getThreeWeekRanges } from '../utils/weekDates';
 import Icon from './Icon';
+import Avatar from './Avatar';
+import AvatarCropModal from './AvatarCropModal';
 import { TABS as NAV_TABS, TOGGLEABLE_TAB_IDS } from './Sidebar';
 
 const DEFAULT_COUNTDOWN_COLOR = '#3b82f6';
@@ -582,9 +584,7 @@ function ChoresEditor({ isMobile }) {
         return (
           <div key={person.id} style={{ ...s.card, ...(person.hidden ? s.cardHidden : {}) }}>
             <div style={s.personHead}>
-              <div style={{ ...s.avatar, background: person.color + '22', color: person.color }}>
-                {person.name[0]}
-              </div>
+              <Avatar person={person} size={39} />
               <div style={s.personName}>{person.name}</div>
               <button
                 style={s.visibilityBtn}
@@ -1517,15 +1517,21 @@ function PeopleEditor({ isMobile }) {
   const [people, setPeople] = useState(null);
   const [drafts, setDrafts] = useState({}); // id -> { name, color }
   const [savingId, setSavingId] = useState(null);
+  const [croppingId, setCroppingId] = useState(null);
+  const [photoBusyId, setPhotoBusyId] = useState(null);
 
   useEffect(() => {
+    refresh();
+  }, []);
+
+  function refresh() {
     api.people().then(res => {
       setPeople(res.people);
       const init = {};
       res.people.forEach(p => { init[p.id] = { name: p.name, color: p.color }; });
       setDrafts(init);
     }).catch(console.error);
-  }, []);
+  }
 
   function setDraft(id, patch) {
     setDrafts(prev => ({ ...prev, [id]: { ...prev[id], ...patch } }));
@@ -1542,7 +1548,25 @@ function PeopleEditor({ isMobile }) {
     }
   }
 
+  async function savePhoto(id, blob) {
+    const res = await api.uploadPersonPhoto(id, blob);
+    setPeople(prev => prev.map(p => p.id === id ? { ...p, photoUrl: res.person.photoUrl } : p));
+    setCroppingId(null);
+  }
+
+  async function removePhoto(id) {
+    setPhotoBusyId(id);
+    try {
+      await api.deletePersonPhoto(id);
+      setPeople(prev => prev.map(p => p.id === id ? { ...p, photoUrl: null } : p));
+    } finally {
+      setPhotoBusyId(null);
+    }
+  }
+
   if (!people) return <div style={s.empty}>Loading people…</div>;
+
+  const croppingPerson = people.find(p => p.id === croppingId);
 
   return (
     <div style={{ ...s.grid, ...(isMobile ? s.gridMobile : {}) }}>
@@ -1551,13 +1575,27 @@ function PeopleEditor({ isMobile }) {
         return (
           <div key={person.id} style={s.card}>
             <div style={s.personHead}>
-              <div style={{ ...s.swatch, background: draft.color }} />
+              <Avatar person={{ ...person, color: draft.color }} size={48} />
               <input
                 style={s.nameInput}
                 type="text"
                 value={draft.name}
                 onChange={e => setDraft(person.id, { name: e.target.value })}
               />
+            </div>
+            <div style={{ ...s.addRow, ...(isMobile ? s.addRowMobile : {}) }}>
+              <button style={s.cancelBtn} onClick={() => setCroppingId(person.id)}>
+                {person.photoUrl ? 'Change Photo' : 'Add Photo'}
+              </button>
+              {person.photoUrl && (
+                <button
+                  style={s.cancelBtn}
+                  onClick={() => removePhoto(person.id)}
+                  disabled={photoBusyId === person.id}
+                >
+                  {photoBusyId === person.id ? 'Removing…' : 'Remove Photo'}
+                </button>
+              )}
             </div>
             <div style={{ ...s.addRow, ...(isMobile ? s.addRowMobile : {}) }}>
               <input
@@ -1577,6 +1615,15 @@ function PeopleEditor({ isMobile }) {
           </div>
         );
       })}
+
+      {croppingPerson && (
+        <AvatarCropModal
+          personName={croppingPerson.name}
+          color={drafts[croppingPerson.id]?.color || croppingPerson.color}
+          onClose={() => setCroppingId(null)}
+          onSave={blob => savePhoto(croppingPerson.id, blob)}
+        />
+      )}
     </div>
   );
 }

@@ -78,6 +78,17 @@ export const api = {
   clearCheckedItems: () => post('/shopping-list/clear'),
   people: () => get('/people'),
   updatePerson: (id, name, color) => post('/people/update', { id, name, color }),
+  uploadPersonPhoto: async (id, blob) => {
+    const formData = new FormData();
+    formData.append('photo', blob, 'avatar.png');
+    const r = await fetch(`${BASE}/people/${id}/photo`, { method: 'POST', body: formData });
+    if (!r.ok) {
+      const body = await r.json().catch(() => ({}));
+      throw new Error(body.error || `POST /people/${id}/photo failed: ${r.status}`);
+    }
+    return r.json();
+  },
+  deletePersonPhoto: (id) => del(`/people/${id}/photo`),
   tasks: () => get('/tasks'),
   addTaskList: (name, color) => post('/tasks/list/add', { name, color }),
   deleteTaskList: (listId) => post('/tasks/list/delete', { listId }),

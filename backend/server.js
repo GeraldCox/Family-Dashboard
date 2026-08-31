@@ -13,6 +13,7 @@ app.use(express.json());
 
 const DATA_DIR = '/app/data';
 const PHOTOS_DIR = path.join(DATA_DIR, 'photos');
+const PEOPLE_PHOTOS_DIR = path.join(DATA_DIR, 'people-photos');
 
 // Household timezone for all "what day is it" logic (chore/routine resets).
 // Falls back to America/New_York if TZ isn't set in the environment.
@@ -475,6 +476,10 @@ function initDefaults() {
 
   if (!fs.existsSync(PHOTOS_DIR)) {
     fs.mkdirSync(PHOTOS_DIR, { recursive: true });
+  }
+
+  if (!fs.existsSync(PEOPLE_PHOTOS_DIR)) {
+    fs.mkdirSync(PEOPLE_PHOTOS_DIR, { recursive: true });
   }
 
   if (!fs.existsSync(FILES.photosSettings)) {
@@ -1416,9 +1421,9 @@ app.get('/api/tides', async (req, res) => {
 app.get('/api/chores', (req, res) => {
   const data = readJSON(FILES.chores, { people: [] });
   const peopleData = readJSON(FILES.people, { people: [] });
-  const nameById = {};
-  (peopleData.people || []).forEach(p => { nameById[p.id] = p.name; });
-  const people = (data.people || []).map(p => nameById[p.id] ? { ...p, name: nameById[p.id] } : p);
+  const metaById = {};
+  (peopleData.people || []).forEach(p => { metaById[p.id] = { name: p.name, photoUrl: personPhotoUrl(p) }; });
+  const people = (data.people || []).map(p => metaById[p.id] ? { ...p, ...metaById[p.id] } : p);
   res.json({ ...data, people });
 });
 
@@ -1620,7 +1625,15 @@ app.post('/api/chores/adjust-stars', (req, res) => {
 });
 
 // People config
-app.get('/api/people', (req, res) => res.json(readJSON(FILES.people, { people: [] })));
+function personPhotoUrl(person) {
+  return person.photoVersion ? `/api/people/${person.id}/photo?v=${person.photoVersion}` : null;
+}
+
+app.get('/api/people', (req, res) => {
+  const data = readJSON(FILES.people, { people: [] });
+  const people = data.people.map(p => ({ ...p, photoUrl: personPhotoUrl(p) }));
+  res.json({ people });
+});
 
 app.post('/api/people/update', (req, res) => {
   const { id, name, color } = req.body;
@@ -1630,7 +1643,43 @@ app.post('/api/people/update', (req, res) => {
   if (name !== undefined) person.name = name;
   if (color !== undefined) person.color = color;
   writeJSON(FILES.people, data);
-  res.json({ ok: true, person });
+  res.json({ ok: true, person: { ...person, photoUrl: personPhotoUrl(person) } });
+});
+
+const personPhotoUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 8 * 1024 * 1024 },
+});
+
+app.post('/api/people/:id/photo', (req, res) => {
+  personPhotoUpload.single('photo')(req, res, (err) => {
+    if (err) return res.status(400).json({ error: err.message });
+    if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
+    const data = readJSON(FILES.people, { people: [] });
+    const person = data.people.find(p => p.id === req.params.id);
+    if (!person) return res.status(404).json({ error: 'Person not found' });
+    fs.writeFileSync(path.join(PEOPLE_PHOTOS_DIR, `${person.id}.png`), req.file.buffer);
+    person.photoVersion = Date.now();
+    writeJSON(FILES.people, data);
+    res.json({ ok: true, person: { ...person, photoUrl: personPhotoUrl(person) } });
+  });
+});
+
+app.delete('/api/people/:id/photo', (req, res) => {
+  const data = readJSON(FILES.people, { people: [] });
+  const person = data.people.find(p => p.id === req.params.id);
+  if (!person) return res.status(404).json({ error: 'Person not found' });
+  const filePath = path.join(PEOPLE_PHOTOS_DIR, `${person.id}.png`);
+  if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+  delete person.photoVersion;
+  writeJSON(FILES.people, data);
+  res.json({ ok: true, person: { ...person, photoUrl: null } });
+});
+
+app.get('/api/people/:id/photo', (req, res) => {
+  const filePath = path.join(PEOPLE_PHOTOS_DIR, `${path.basename(req.params.id)}.png`);
+  if (!fs.existsSync(filePath)) return res.status(404).json({ error: 'No photo' });
+  res.sendFile(filePath);
 });
 
 // Meals

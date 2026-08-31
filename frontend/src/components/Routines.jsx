@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { api } from '../api';
 import Icon from './Icon';
+import Avatar from './Avatar';
 
 const TIME_ORDER = ['morning', 'afternoon', 'evening', 'bedtime'];
 const TIME_LABELS = {
@@ -29,18 +30,14 @@ function PersonAvatars({ peopleIds, personMap }) {
         const person = personMap[id];
         if (!person) return null;
         return (
-          <div
+          <Avatar
             key={id}
-            style={{
-              ...s.avatarCircle,
-              background: person.color,
-              marginLeft: i === 0 ? 0 : -8,
-              zIndex: peopleIds.length - i,
-            }}
+            person={person}
+            size={25}
+            ring="var(--bg)"
+            style={{ marginLeft: i === 0 ? 0 : -8, zIndex: peopleIds.length - i }}
             title={person.name}
-          >
-            {person.name[0]}
-          </div>
+          />
         );
       })}
     </div>
