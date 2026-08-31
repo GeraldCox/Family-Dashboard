@@ -19,6 +19,7 @@ import { useScreenSize } from './hooks/useScreenSize';
 import { useDayNight } from './hooks/useDayNight';
 
 const DEFAULT_SCREENSAVER_SETTINGS = { inactivityMinutes: 5, transitionSeconds: 6, brightness: 100 };
+const DEFAULT_GENERAL_SETTINGS = { hiddenNavItems: [] };
 const ACTIVITY_EVENTS = ['mousemove', 'touchstart', 'keydown', 'click'];
 
 const VIEW_OPTIONS = [
@@ -81,6 +82,7 @@ export default function App() {
   const [showAddEvent, setShowAddEvent] = useState(false);
   const [screensaverSettings, setScreensaverSettings] = useState(DEFAULT_SCREENSAVER_SETTINGS);
   const [showScreensaver, setShowScreensaver] = useState(false);
+  const [generalSettings, setGeneralSettings] = useState(DEFAULT_GENERAL_SETTINGS);
   const lastActivityRef = useRef(Date.now());
   const { isMobile } = useScreenSize();
   const { isDark } = useDayNight();
@@ -96,6 +98,14 @@ export default function App() {
   useEffect(() => {
     api.getScreensaverSettings().then(setScreensaverSettings).catch(console.error);
   }, []);
+
+  useEffect(() => {
+    api.getGeneralSettings().then(setGeneralSettings).catch(console.error);
+  }, []);
+
+  useEffect(() => {
+    if (generalSettings.hiddenNavItems?.includes(tab)) setTab('home');
+  }, [generalSettings, tab]);
 
   useEffect(() => {
     function markActivity() {
@@ -145,7 +155,7 @@ export default function App() {
         />
       )}
 
-      <Sidebar tab={tab} onChange={setTab} />
+      <Sidebar tab={tab} onChange={setTab} hiddenNavItems={generalSettings.hiddenNavItems} />
 
       <div style={s.mainCol}>
         <WeatherBar />
@@ -214,6 +224,7 @@ export default function App() {
               <EditTab
                 onPreviewScreensaver={previewScreensaver}
                 onScreensaverSettingsSaved={setScreensaverSettings}
+                onGeneralSettingsSaved={setGeneralSettings}
               />
             </div>
           )}

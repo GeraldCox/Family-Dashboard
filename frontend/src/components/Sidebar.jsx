@@ -14,12 +14,17 @@ export const TABS = [
   { id: 'edit',       icon: 'pencil',          label: 'Edit' },
 ];
 
-export default function Sidebar({ tab, onChange }) {
+// Nav items the household can hide via Edit → General. Everything else
+// (home, edit, etc.) always shows so the dashboard can't be navigated into a corner.
+export const TOGGLEABLE_TAB_IDS = ['homeschool', 'beach', 'timer'];
+
+export default function Sidebar({ tab, onChange, hiddenNavItems = [] }) {
   const { isMobile } = useScreenSize();
+  const visibleTabs = TABS.filter(t => !(TOGGLEABLE_TAB_IDS.includes(t.id) && hiddenNavItems.includes(t.id)));
 
   return (
     <nav style={{ ...s.wrap, width: isMobile ? 66 : 84 }} aria-label="Primary">
-      {TABS.map(t => {
+      {visibleTabs.map(t => {
         const active = tab === t.id;
         return (
           <button

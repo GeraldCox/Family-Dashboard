@@ -4,10 +4,12 @@ import { useScreenSize } from '../hooks/useScreenSize';
 import { daysUntil } from './CountdownWidget';
 import { DOW_SHORT, DOW_LONG, toDateStr, parseDateStr, addDays, formatDateRange, isSameDate, getThreeWeekRanges } from '../utils/weekDates';
 import Icon from './Icon';
+import { TABS as NAV_TABS, TOGGLEABLE_TAB_IDS } from './Sidebar';
 
 const DEFAULT_COUNTDOWN_COLOR = '#3b82f6';
 
 const SUB_TABS = [
+  { id: 'general',     label: 'General' },
   { id: 'chores',      label: 'Chores' },
   { id: 'routines',    label: 'Routines' },
   { id: 'meals',       label: 'Meals' },
@@ -20,7 +22,7 @@ const SUB_TABS = [
   { id: 'display',     label: 'Display' },
 ];
 
-export default function EditTab({ onPreviewScreensaver, onScreensaverSettingsSaved }) {
+export default function EditTab({ onPreviewScreensaver, onScreensaverSettingsSaved, onGeneralSettingsSaved }) {
   const [subTab, setSubTab] = useState('chores');
   const { isMobile } = useScreenSize();
 
@@ -28,6 +30,7 @@ export default function EditTab({ onPreviewScreensaver, onScreensaverSettingsSav
     <div style={s.wrap}>
       <SubNav subTab={subTab} setSubTab={setSubTab} isMobile={isMobile} />
       <div style={{ ...s.body, ...(isMobile ? s.bodyMobile : {}) }}>
+        {subTab === 'general' && <GeneralEditor isMobile={isMobile} onGeneralSettingsSaved={onGeneralSettingsSaved} />}
         {subTab === 'chores' && <ChoresEditor isMobile={isMobile} />}
         {subTab === 'routines' && <RoutinesEditor isMobile={isMobile} />}
         {subTab === 'meals' && <MealsEditor isMobile={isMobile} />}
@@ -109,6 +112,60 @@ function SubNav({ subTab, setSubTab, isMobile }) {
           <Icon name="chevron-right" size={16} />
         </button>
       )}
+    </div>
+  );
+}
+
+// ── General Editor ───────────────────────────────────────────────────────────
+
+const NAV_TOGGLES = NAV_TABS.filter(t => TOGGLEABLE_TAB_IDS.includes(t.id));
+
+function GeneralEditor({ isMobile, onGeneralSettingsSaved }) {
+  const [hidden, setHidden] = useState(null);
+  const [savingId, setSavingId] = useState(null);
+
+  useEffect(() => {
+    api.getGeneralSettings().then(res => setHidden(res.hiddenNavItems || [])).catch(console.error);
+  }, []);
+
+  async function toggleNavItem(id) {
+    const next = hidden.includes(id) ? hidden.filter(x => x !== id) : [...hidden, id];
+    setHidden(next);
+    setSavingId(id);
+    try {
+      const res = await api.saveGeneralSettings({ hiddenNavItems: next });
+      onGeneralSettingsSaved?.(res.settings);
+    } finally {
+      setSavingId(null);
+    }
+  }
+
+  if (hidden === null) return <div style={s.empty}>Loading settings…</div>;
+
+  return (
+    <div style={s.card}>
+      <div style={{ ...s.personName, display: 'flex', alignItems: 'center', gap: 8 }}>
+        <Icon name="clipboard-list" size={18} /> Navigation
+      </div>
+      <div style={{ ...s.emptySmall, marginBottom: 10 }}>Choose which items show up in the sidebar.</div>
+      <div style={s.list}>
+        {NAV_TOGGLES.map(t => {
+          const enabled = !hidden.includes(t.id);
+          return (
+            <label key={t.id} style={{ ...s.row, cursor: 'pointer', opacity: savingId === t.id ? 0.6 : 1 }}>
+              <Icon name={t.icon} size={18} style={{ color: 'var(--text-2)' }} />
+              <span style={s.rowName}>{t.label}</span>
+              <input
+                type="checkbox"
+                checked={enabled}
+                onChange={() => toggleNavItem(t.id)}
+                disabled={savingId !== null}
+                style={s.toggleCheckbox}
+              />
+            </label>
+          );
+        })}
+      </div>
     </div>
   );
 }
@@ -2160,6 +2217,8 @@ const s = {
     background: 'var(--blue)', color: 'white', fontSize: 15, fontWeight: 600,
     cursor: 'pointer', flexShrink: 0,
   },
+
+  toggleCheckbox: { width: 20, height: 20, cursor: 'pointer', flexShrink: 0, marginLeft: 'auto' },
 
   peopleCheckboxRow: {
     display: 'flex', flexWrap: 'wrap', gap: 12, marginBottom: 14,

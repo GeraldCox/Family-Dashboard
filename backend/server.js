@@ -35,6 +35,7 @@ const FILES = {
   googleTokens: path.join(DATA_DIR, 'google-tokens.json'),
   homeschool: path.join(DATA_DIR, 'homeschool.json'),
   mealieSettings: path.join(DATA_DIR, 'mealie-settings.json'),
+  generalSettings: path.join(DATA_DIR, 'general-settings.json'),
 };
 
 // ── Homeschool defaults ───────────────────────────────────────────────────────
@@ -172,6 +173,11 @@ const PHOTO_EXT_BY_MIME = {
   'image/webp': '.webp',
 };
 const DEFAULT_PHOTO_SETTINGS = { inactivityMinutes: 5, transitionSeconds: 6, brightness: 100 };
+
+// Sidebar nav items the household can hide from the "General" editor tab.
+// Anything not in this list (home, calendar, chores, etc.) always shows.
+const TOGGLEABLE_NAV_ITEMS = ['homeschool', 'beach', 'timer'];
+const DEFAULT_GENERAL_SETTINGS = { hiddenNavItems: [] };
 
 // Get a free key at https://spoonacular.com/food-api
 const SPOONACULAR_API_KEY = process.env.SPOONACULAR_API_KEY || '';
@@ -487,6 +493,10 @@ function initDefaults() {
 
   if (!fs.existsSync(FILES.homeschool)) {
     writeJSON(FILES.homeschool, homeschoolDefault());
+  }
+
+  if (!fs.existsSync(FILES.generalSettings)) {
+    writeJSON(FILES.generalSettings, DEFAULT_GENERAL_SETTINGS);
   }
 }
 
@@ -2348,6 +2358,21 @@ app.post('/api/photos/settings', (req, res) => {
     brightness: Number(brightness) || DEFAULT_PHOTO_SETTINGS.brightness,
   };
   writeJSON(FILES.photosSettings, settings);
+  res.json({ ok: true, settings });
+});
+
+app.get('/api/settings/general', (req, res) => {
+  res.json(readJSON(FILES.generalSettings, DEFAULT_GENERAL_SETTINGS));
+});
+
+app.post('/api/settings/general', (req, res) => {
+  const { hiddenNavItems } = req.body;
+  const settings = {
+    hiddenNavItems: Array.isArray(hiddenNavItems)
+      ? hiddenNavItems.filter(id => TOGGLEABLE_NAV_ITEMS.includes(id))
+      : [],
+  };
+  writeJSON(FILES.generalSettings, settings);
   res.json({ ok: true, settings });
 });
 

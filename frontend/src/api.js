@@ -93,6 +93,8 @@ export const api = {
   fetchPhotoFromUrl: (url) => get(`/photos/fetch-url?url=${encodeURIComponent(url)}`),
   getScreensaverSettings: () => get('/photos/settings'),
   saveScreensaverSettings: (settings) => post('/photos/settings', settings),
+  getGeneralSettings: () => get('/settings/general'),
+  saveGeneralSettings: (settings) => post('/settings/general', settings),
   getCountdowns: () => get('/countdowns'),
   addCountdown: (name, emoji, date, color) => post('/countdowns/add', { name, emoji, date, color }),
   deleteCountdown: (id) => del(`/countdowns/${id}`),
