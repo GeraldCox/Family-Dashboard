@@ -87,7 +87,9 @@ function RoutineBubble({ routine, personMap, expanded, onToggleExpand, onToggleS
 export default function Routines() {
   const [routines, setRoutines] = useState(null);
   const [personMap, setPersonMap] = useState({});
-  const [expandedIds, setExpandedIds] = useState(() => new Set());
+  // null until the first load resolves, then a Set of expanded routine ids —
+  // seeded with every id so bubbles start expanded instead of collapsed.
+  const [expandedIds, setExpandedIds] = useState(null);
 
   useEffect(() => {
     refresh();
@@ -99,7 +101,11 @@ export default function Routines() {
   }, []);
 
   function refresh() {
-    api.getRoutines().then(res => setRoutines(res.routines || [])).catch(console.error);
+    api.getRoutines().then(res => {
+      const list = res.routines || [];
+      setRoutines(list);
+      setExpandedIds(prev => prev ?? new Set(list.map(r => r.id)));
+    }).catch(console.error);
   }
 
   function toggleExpand(id) {
