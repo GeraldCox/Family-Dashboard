@@ -16,7 +16,7 @@ export const TABS = [
 
 // Nav items the household can hide via Edit → General. Everything else
 // (home, edit, etc.) always shows so the dashboard can't be navigated into a corner.
-export const TOGGLEABLE_TAB_IDS = ['homeschool', 'beach', 'timer'];
+export const TOGGLEABLE_TAB_IDS = ['chores', 'tasks', 'meals', 'shopping', 'homeschool', 'beach', 'timer'];
 
 export default function Sidebar({ tab, onChange, hiddenNavItems = [] }) {
   const { isMobile } = useScreenSize();

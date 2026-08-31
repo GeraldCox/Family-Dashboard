@@ -178,7 +178,7 @@ const DEFAULT_PHOTO_SETTINGS = { inactivityMinutes: 5, transitionSeconds: 6, bri
 
 // Sidebar nav items the household can hide from the "General" editor tab.
 // Anything not in this list (home, calendar, chores, etc.) always shows.
-const TOGGLEABLE_NAV_ITEMS = ['homeschool', 'beach', 'timer'];
+const TOGGLEABLE_NAV_ITEMS = ['chores', 'tasks', 'meals', 'shopping', 'homeschool', 'beach', 'timer'];
 const DEFAULT_GENERAL_SETTINGS = { hiddenNavItems: [], countdownHideAfterDays: 1 };
 
 // Weather location: { lat, lon, label } once set via the General tab. Null
