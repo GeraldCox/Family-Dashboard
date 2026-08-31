@@ -91,7 +91,7 @@ function RoutineBubble({ routine, personMap, expanded, onToggleExpand, onToggleS
         <div style={s.stepsList}>
           {routine.steps.map(step => (
             <div key={step.id} style={s.stepRow} onClick={() => onToggleStep(routine.id, step.id)}>
-              <div style={{ ...s.stepCircle, ...(step.done ? s.stepCircleDone : {}) }}>
+              <div style={{ ...s.stepCircle, ...(step.done ? s.stepCircleDone : isOverdue ? s.stepCircleOverdue : {}) }}>
                 {step.done && <Icon name="check" size={15} />}
               </div>
               <div style={{ ...s.stepName, ...(step.done ? s.stepNameDone : isOverdue ? s.stepNameOverdue : {}) }}>{step.name}</div>
@@ -314,6 +314,10 @@ const s = {
     color: 'white', transition: 'background 0.15s, border-color 0.15s',
   },
   stepCircleDone: { background: 'var(--green)', borderColor: 'var(--green)' },
+  // --border-md is a faint ring meant for the app's normal background —
+  // nearly invisible against the light-pink overdue bubble, so unchecked
+  // items there get a bold, clearly-visible red ring instead.
+  stepCircleOverdue: { borderColor: 'var(--red)' },
   stepName: { fontSize: 15, color: 'var(--text-1)', flex: 1 },
   stepNameDone: { color: 'var(--text-3)', textDecoration: 'line-through' },
   stepNameOverdue: { color: 'var(--red-text)' },
