@@ -640,7 +640,9 @@ const styles = {
   todayCell: { background: 'var(--accent)' },
   selectedCell: { background: 'rgba(60,126,195,0.15)', outline: '2px solid var(--accent-blue)', outlineOffset: -2 },
   dayNum: { fontSize: 14, fontWeight: 500, color: 'var(--text-2)', width: 26, height: 26, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '50%', marginBottom: 2 },
-  todayNum: { background: 'rgba(255,255,255,0.3)', color: 'white', fontWeight: 700 },
+  // Solid white + a fixed dark ink (not a theme variable) so the number stays
+  // legible regardless of how bright/dark --accent is in either theme.
+  todayNum: { background: 'white', color: '#0a1620', fontWeight: 700 },
   pills: { display: 'flex', flexDirection: 'column', gap: 2 },
   pill: { fontSize: 13, padding: '3px 6px', borderRadius: 4, fontWeight: 500, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', display: 'flex', alignItems: 'center', gap: 2 },
   dotsRow: { display: 'flex', flexWrap: 'wrap', gap: 3, alignItems: 'center' },
@@ -684,7 +686,7 @@ const weekStyles = {
   dow: { fontSize: 12, fontWeight: 700, color: 'var(--text-3)', letterSpacing: '0.05em' },
   dowToday: { color: 'white' },
   dayNum: { fontSize: 15, fontWeight: 600, color: 'var(--text-1)', width: 24, height: 24, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '50%' },
-  dayNumToday: { background: 'rgba(255,255,255,0.3)', color: 'white' },
+  dayNumToday: { background: 'white', color: '#0a1620' },
   pills: { display: 'flex', flexDirection: 'column', gap: 3 },
   pill: { fontSize: 13, fontWeight: 500, padding: '3px 6px', borderRadius: 4, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' },
   more: { fontSize: 12, color: 'var(--text-3)', fontWeight: 600 },
