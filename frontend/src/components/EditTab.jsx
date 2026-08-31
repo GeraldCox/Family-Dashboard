@@ -26,21 +26,7 @@ export default function EditTab({ onPreviewScreensaver, onScreensaverSettingsSav
 
   return (
     <div style={s.wrap}>
-      <div style={{ ...s.subNav, ...(isMobile ? s.subNavMobile : {}) }}>
-        {SUB_TABS.map(t => (
-          <button
-            key={t.id}
-            style={{
-              ...s.subNavTab,
-              ...(isMobile ? s.subNavTabMobile : {}),
-              ...(subTab === t.id ? s.subNavActive : {}),
-            }}
-            onClick={() => setSubTab(t.id)}
-          >
-            {t.label}
-          </button>
-        ))}
-      </div>
+      <SubNav subTab={subTab} setSubTab={setSubTab} isMobile={isMobile} />
       <div style={{ ...s.body, ...(isMobile ? s.bodyMobile : {}) }}>
         {subTab === 'chores' && <ChoresEditor isMobile={isMobile} />}
         {subTab === 'routines' && <RoutinesEditor isMobile={isMobile} />}
@@ -59,6 +45,70 @@ export default function EditTab({ onPreviewScreensaver, onScreensaverSettingsSav
         )}
         {subTab === 'display' && <DisplayEditor isMobile={isMobile} />}
       </div>
+    </div>
+  );
+}
+
+// ── Sub-tab nav ──────────────────────────────────────────────────────────────
+// Always horizontally scrollable (not just on mobile) since the tab strip can
+// overflow on tablets/narrow desktop windows too. Edge fades + arrow buttons
+// make the overflow discoverable on touch screens, where there's no scrollbar.
+
+function SubNav({ subTab, setSubTab, isMobile }) {
+  const scrollRef = useRef(null);
+  const [canScroll, setCanScroll] = useState({ left: false, right: false });
+
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    function update() {
+      setCanScroll({
+        left: el.scrollLeft > 2,
+        right: el.scrollLeft < el.scrollWidth - el.clientWidth - 2,
+      });
+    }
+    update();
+    el.addEventListener('scroll', update, { passive: true });
+    window.addEventListener('resize', update);
+    return () => {
+      el.removeEventListener('scroll', update);
+      window.removeEventListener('resize', update);
+    };
+  }, []);
+
+  function scrollByAmount(dir) {
+    scrollRef.current?.scrollBy({ left: dir * 160, behavior: 'smooth' });
+  }
+
+  return (
+    <div style={s.subNavWrap}>
+      <div ref={scrollRef} style={{ ...s.subNav, ...(isMobile ? s.subNavMobile : {}) }}>
+        {SUB_TABS.map(t => (
+          <button
+            key={t.id}
+            style={{
+              ...s.subNavTab,
+              ...(isMobile ? s.subNavTabMobile : {}),
+              ...(subTab === t.id ? s.subNavActive : {}),
+            }}
+            onClick={() => setSubTab(t.id)}
+          >
+            {t.label}
+          </button>
+        ))}
+      </div>
+      {canScroll.left && <div style={{ ...s.subNavFade, ...s.subNavFadeLeft }} />}
+      {canScroll.right && <div style={{ ...s.subNavFade, ...s.subNavFadeRight }} />}
+      {canScroll.left && (
+        <button style={{ ...s.subNavArrow, ...s.subNavArrowLeft }} onClick={() => scrollByAmount(-1)} aria-label="Scroll tabs left">
+          <Icon name="chevron-left" size={16} />
+        </button>
+      )}
+      {canScroll.right && (
+        <button style={{ ...s.subNavArrow, ...s.subNavArrowRight }} onClick={() => scrollByAmount(1)} aria-label="Scroll tabs right">
+          <Icon name="chevron-right" size={16} />
+        </button>
+      )}
     </div>
   );
 }
@@ -1983,25 +2033,40 @@ function DisplayEditor({ isMobile }) {
 
 const s = {
   wrap: { display: 'flex', flexDirection: 'column', height: '100%' },
+  subNavWrap: { position: 'relative', flexShrink: 0 },
   subNav: {
-    display: 'flex', gap: 4, padding: '10px 16px 0 16px', flexShrink: 0,
+    display: 'flex', gap: 4, padding: '10px 16px 0 16px',
+    overflowX: 'auto', WebkitOverflowScrolling: 'touch',
   },
   subNavMobile: {
-    padding: '8px 8px 0 8px', overflowX: 'auto', whiteSpace: 'nowrap',
+    padding: '8px 8px 0 8px',
   },
   subNavTab: {
     padding: '9px 18px', fontSize: 15, fontWeight: 500,
     color: 'var(--text-2)', background: 'var(--surface)',
     border: '0.5px solid var(--border)', borderBottom: 'none',
     borderRadius: '10px 10px 0 0', cursor: 'pointer',
-    fontFamily: 'inherit',
+    fontFamily: 'inherit', whiteSpace: 'nowrap', flexShrink: 0,
   },
   subNavTabMobile: {
-    padding: '8px 12px', fontSize: 14, flexShrink: 0,
+    padding: '8px 12px', fontSize: 14,
   },
   subNavActive: {
     color: 'var(--blue)', background: 'var(--bg)',
   },
+  subNavFade: {
+    position: 'absolute', top: 0, bottom: 0, width: 28, pointerEvents: 'none',
+  },
+  subNavFadeLeft: { left: 0, background: 'linear-gradient(to right, var(--bg), transparent)' },
+  subNavFadeRight: { right: 0, background: 'linear-gradient(to left, var(--bg), transparent)' },
+  subNavArrow: {
+    position: 'absolute', top: 4, width: 24, height: 24, borderRadius: '50%',
+    display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0,
+    background: 'var(--surface)', border: '0.5px solid var(--border)',
+    color: 'var(--text-2)', cursor: 'pointer', boxShadow: 'var(--shadow-sm)',
+  },
+  subNavArrowLeft: { left: 4 },
+  subNavArrowRight: { right: 4 },
   body: { flex: 1, overflowY: 'auto', padding: 16 },
   bodyMobile: { padding: 8 },
 
