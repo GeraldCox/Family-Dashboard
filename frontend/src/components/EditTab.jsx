@@ -2014,19 +2014,114 @@ function RemindersEditor({ isMobile }) {
 
 // ── Connected Accounts Editor ────────────────────────────────────────────────
 
+// Google OAuth Client ID/Secret, configurable here instead of requiring a
+// .env edit + container restart — mirrors the old PHP dashboard's settings
+// screen, which stored the same credentials directly in its own UI.
+function GoogleOAuthConfigCard({ isMobile, onSaved }) {
+  const [config, setConfig] = useState(null);
+  const [clientIdDraft, setClientIdDraft] = useState('');
+  const [clientSecretDraft, setClientSecretDraft] = useState('');
+  const [redirectUriDraft, setRedirectUriDraft] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+
+  useEffect(() => {
+    api.getGoogleOAuthConfig().then(res => {
+      setConfig(res);
+      setClientIdDraft(res.clientId || '');
+      setRedirectUriDraft(res.redirectUri || `${window.location.origin}/api/auth/google/callback`);
+    }).catch(console.error);
+  }, []);
+
+  async function save() {
+    setSaving(true);
+    setSaved(false);
+    try {
+      const res = await api.saveGoogleOAuthConfig(clientIdDraft.trim(), clientSecretDraft.trim(), redirectUriDraft.trim());
+      setConfig(res);
+      setClientSecretDraft('');
+      setSaved(true);
+      onSaved?.();
+      setTimeout(() => setSaved(false), 3000);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  if (!config) return null;
+
+  return (
+    <div style={s.card}>
+      <div style={{ ...s.personName, display: 'flex', alignItems: 'center', gap: 8 }}><Icon name="link" size={18} /> Google OAuth Setup</div>
+      <div style={s.emptySmall}>
+        1. Go to <a href="https://console.cloud.google.com/apis/credentials" target="_blank" rel="noreferrer">console.cloud.google.com</a> → create a project → enable the Google Calendar API.<br />
+        2. Credentials → Create → OAuth 2.0 Client ID → Web application.<br />
+        3. Add the redirect URI below to "Authorized redirect URIs", save, and wait a couple minutes.<br />
+        4. Paste the Client ID and Client Secret here and save.
+      </div>
+
+      <div style={{ ...s.addRow, ...(isMobile ? s.addRowMobile : {}), marginTop: 10 }}>
+        <input
+          style={s.nameInput}
+          type="text"
+          placeholder="Client ID"
+          value={clientIdDraft}
+          onChange={e => setClientIdDraft(e.target.value)}
+        />
+      </div>
+      <div style={{ ...s.addRow, ...(isMobile ? s.addRowMobile : {}), marginTop: 8 }}>
+        <input
+          style={s.nameInput}
+          type="password"
+          placeholder={config.hasClientSecret ? 'Client Secret saved — enter a new one to replace it' : 'Client Secret'}
+          value={clientSecretDraft}
+          onChange={e => setClientSecretDraft(e.target.value)}
+        />
+      </div>
+      <div style={{ ...s.addRow, ...(isMobile ? s.addRowMobile : {}), marginTop: 8 }}>
+        <input
+          style={s.nameInput}
+          type="text"
+          placeholder="Redirect URI"
+          value={redirectUriDraft}
+          onChange={e => setRedirectUriDraft(e.target.value)}
+        />
+        <button style={s.addBtn} onClick={save} disabled={saving}>{saving ? 'Saving…' : 'Save'}</button>
+      </div>
+      <div style={{ ...s.emptySmall, marginTop: 8, display: 'flex', alignItems: 'center', gap: 6 }}>
+        {config.hasClientSecret
+          ? <><Icon name="check" size={14} style={{ color: 'var(--green)' }} /> Client Secret configured</>
+          : 'No Client Secret saved yet'}
+        {saved && <span style={{ color: 'var(--green)' }}>· Saved</span>}
+      </div>
+    </div>
+  );
+}
+
 function ConnectedAccountsEditor({ isMobile }) {
   const [accounts, setAccounts] = useState(null);
   const [toast, setToast] = useState('');
+  const [authError, setAuthError] = useState('');
+  const [expandedId, setExpandedId] = useState(null);
 
   useEffect(() => {
     refresh();
     const params = new URLSearchParams(window.location.search);
+    let touched = false;
     if (params.get('connected') === 'google') {
       setToast('Google account connected!');
       params.delete('connected');
+      touched = true;
+      setTimeout(() => setToast(''), 3000);
+    }
+    if (params.get('googleAuthError') === 'missing_config') {
+      setAuthError('Set a Google OAuth Client ID (and Secret) below before connecting an account.');
+      params.delete('googleAuthError');
+      touched = true;
+    }
+    if (touched) {
       const newSearch = params.toString();
       window.history.replaceState({}, '', window.location.pathname + (newSearch ? `?${newSearch}` : ''));
-      setTimeout(() => setToast(''), 3000);
     }
   }, []);
 
@@ -2037,22 +2132,36 @@ function ConnectedAccountsEditor({ isMobile }) {
   async function disconnect(id) {
     await api.disconnectGoogleAccount(id);
     setAccounts(prev => prev.filter(a => a.id !== id));
+    if (expandedId === id) setExpandedId(null);
   }
 
   if (!accounts) return <div style={s.empty}>Loading connected accounts…</div>;
 
   return (
     <>
+      <GoogleOAuthConfigCard isMobile={isMobile} onSaved={() => setAuthError('')} />
+
       <div style={s.card}>
         <div style={{ ...s.personName, display: 'flex', alignItems: 'center', gap: 8 }}><Icon name="link" size={18} /> Connected Google Accounts</div>
         {toast && <div style={{ ...s.noticeText, display: 'flex', alignItems: 'center', gap: 6 }}><Icon name="check" size={15} style={{ color: 'var(--green)' }} /> {toast}</div>}
+        {authError && <div style={{ ...s.noticeText, color: '#dc2626', display: 'flex', alignItems: 'center', gap: 6 }}><Icon name="alert-triangle" size={15} /> {authError}</div>}
 
         <div style={s.list}>
           {accounts.map(acc => (
-            <div key={acc.id} style={s.row}>
-              <div style={{ ...s.colorSwatchSmall, background: acc.color }} />
-              <span style={s.rowName}>{acc.email}</span>
-              <button style={s.trashBtn} onClick={() => disconnect(acc.id)} title="Disconnect account"><Icon name="trash" size={16} /></button>
+            <div key={acc.id}>
+              <div style={s.row}>
+                <div style={{ ...s.colorSwatchSmall, background: acc.color }} />
+                <span style={s.rowName}>{acc.email}</span>
+                <button
+                  style={s.trashBtn}
+                  onClick={() => setExpandedId(prev => prev === acc.id ? null : acc.id)}
+                  title="Choose which calendars to show"
+                >
+                  <Icon name="calendar" size={16} />
+                </button>
+                <button style={s.trashBtn} onClick={() => disconnect(acc.id)} title="Disconnect account"><Icon name="trash" size={16} /></button>
+              </div>
+              {expandedId === acc.id && <AccountCalendarsPicker accountId={acc.id} isMobile={isMobile} />}
             </div>
           ))}
           {accounts.length === 0 && <div style={s.emptySmall}>No Google accounts connected yet</div>}
@@ -2065,6 +2174,77 @@ function ConnectedAccountsEditor({ isMobile }) {
 
       <MealieSettingsCard isMobile={isMobile} />
     </>
+  );
+}
+
+// Per-account calendar picker: a Google account often has access to several
+// calendars (its own, shared family members', subscribed holiday/task
+// feeds) beyond just its primary one. Lets the user pick which show up on
+// the dashboard, and override each one's display name/color.
+function AccountCalendarsPicker({ accountId, isMobile }) {
+  const [calendars, setCalendars] = useState(null);
+  const [error, setError] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+
+  useEffect(() => {
+    api.getGoogleCalendars(accountId)
+      .then(res => setCalendars(res.calendars || []))
+      .catch(err => setError(err.message || 'Failed to load calendars'));
+  }, [accountId]);
+
+  function updateCal(id, patch) {
+    setCalendars(prev => prev.map(c => c.id === id ? { ...c, ...patch } : c));
+  }
+
+  async function save() {
+    setSaving(true);
+    setSaved(false);
+    try {
+      await api.saveGoogleCalendars(accountId, calendars);
+      setSaved(true);
+      setTimeout(() => setSaved(false), 3000);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  if (error) return <div style={{ ...s.emptySmall, padding: '8px 11px' }}>{error}</div>;
+  if (!calendars) return <div style={{ ...s.emptySmall, padding: '8px 11px' }}>Loading calendars…</div>;
+
+  return (
+    <div style={s.calPicker}>
+      {calendars.map(cal => (
+        <div key={cal.id} style={s.calPickerRow}>
+          <input
+            type="checkbox"
+            checked={cal.enabled}
+            onChange={e => updateCal(cal.id, { enabled: e.target.checked })}
+            style={{ ...s.toggleCheckbox, marginLeft: 0 }}
+          />
+          <input
+            type="color"
+            style={s.calColorInput}
+            value={cal.color}
+            onChange={e => updateCal(cal.id, { color: e.target.value })}
+          />
+          <div style={s.calPickerNames}>
+            <input
+              style={{ ...s.nameInput, ...(isMobile ? s.fullWidthInput : {}) }}
+              type="text"
+              value={cal.displayName}
+              onChange={e => updateCal(cal.id, { displayName: e.target.value })}
+            />
+            {cal.displayName !== cal.summary && <span style={s.calOriginalName}>{cal.summary}</span>}
+          </div>
+        </div>
+      ))}
+      {calendars.length === 0 && <div style={s.emptySmall}>No calendars found for this account</div>}
+      <div style={{ ...s.addRow, marginTop: 10 }}>
+        <button style={s.addBtn} onClick={save} disabled={saving}>{saving ? 'Saving…' : 'Save'}</button>
+        {saved && <span style={{ color: 'var(--green)', fontSize: 13, fontWeight: 600 }}>Saved</span>}
+      </div>
+    </div>
   );
 }
 
@@ -2484,6 +2664,18 @@ const s = {
   },
 
   toggleCheckbox: { width: 20, height: 20, cursor: 'pointer', flexShrink: 0, marginLeft: 'auto' },
+
+  calPicker: {
+    display: 'flex', flexDirection: 'column', gap: 6,
+    padding: '10px 11px 11px 39px', marginTop: -2, marginBottom: 6,
+  },
+  calPickerRow: { display: 'flex', alignItems: 'center', gap: 8 },
+  calColorInput: {
+    width: 34, height: 30, padding: 2, borderRadius: 6, flexShrink: 0,
+    border: '1px solid var(--border-md)', background: 'var(--bg)', cursor: 'pointer',
+  },
+  calPickerNames: { flex: 1, display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 },
+  calOriginalName: { fontSize: 12, color: 'var(--text-3)', flexShrink: 0, whiteSpace: 'nowrap' },
 
   cutoffLabel: {
     display: 'flex', flexDirection: 'column', gap: 4, fontSize: 13,

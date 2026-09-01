@@ -34,6 +34,7 @@ const FILES = {
   workouts: path.join(DATA_DIR, 'workouts.json'),
   reminders: path.join(DATA_DIR, 'reminders.json'),
   googleTokens: path.join(DATA_DIR, 'google-tokens.json'),
+  googleOAuthConfig: path.join(DATA_DIR, 'google-oauth-config.json'),
   homeschool: path.join(DATA_DIR, 'homeschool.json'),
   mealieSettings: path.join(DATA_DIR, 'mealie-settings.json'),
   generalSettings: path.join(DATA_DIR, 'general-settings.json'),
@@ -61,8 +62,24 @@ const GOOGLE_REDIRECT_URI = process.env.GOOGLE_REDIRECT_URI;
 const GOOGLE_DASHBOARD_URL = process.env.DASHBOARD_URL || 'http://localhost:3000/';
 const GOOGLE_ACCOUNT_COLORS = ['#3b82f6', '#db2777', '#16a34a', '#d97706', '#8b5cf6', '#059669', '#0891b2'];
 
+// Client ID/secret/redirect URI can be set two ways: env vars (GOOGLE_CLIENT_ID
+// etc. in docker-compose/.env) or the Connected Accounts settings screen,
+// which saves to google-oauth-config.json and requires no container restart —
+// the same in-app-configurable approach as the old PHP dashboard. Saved
+// values win when present so the settings screen can override a blank or
+// outdated env var without editing .env.
+function getGoogleOAuthConfig() {
+  const saved = readJSON(FILES.googleOAuthConfig, {});
+  return {
+    clientId: saved.clientId || GOOGLE_CLIENT_ID || '',
+    clientSecret: saved.clientSecret || GOOGLE_CLIENT_SECRET || '',
+    redirectUri: saved.redirectUri || GOOGLE_REDIRECT_URI || '',
+  };
+}
+
 function createGoogleOAuthClient() {
-  return new google.auth.OAuth2(GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, GOOGLE_REDIRECT_URI);
+  const { clientId, clientSecret, redirectUri } = getGoogleOAuthConfig();
+  return new google.auth.OAuth2(clientId, clientSecret, redirectUri);
 }
 
 // Ensures the account's access token is valid, refreshing it via the stored
@@ -101,44 +118,70 @@ async function getFreshGoogleClient(account) {
   return oauth2Client;
 }
 
+// Accounts saved before per-calendar selection existed (or that haven't
+// visited the calendar picker yet) have no `calendars` list — fall back to
+// just their primary calendar, tinted with the account's own color, so
+// behavior is unchanged until the user opts into more calendars.
+function getEnabledCalendars(account) {
+  if (Array.isArray(account.calendars) && account.calendars.length > 0) {
+    return account.calendars.filter(c => c.enabled !== false);
+  }
+  return [{ id: 'primary', displayName: account.email, color: account.color }];
+}
+
 async function fetchGoogleEvents(account, startDate, endDate) {
+  const calendars = getEnabledCalendars(account);
+  if (calendars.length === 0) return [];
+
+  let calendarApi;
   try {
     const oauth2Client = await getFreshGoogleClient(account);
-    const calendar = google.calendar({ version: 'v3', auth: oauth2Client });
-    const response = await calendar.events.list({
-      calendarId: 'primary',
-      timeMin: startDate.toISOString(),
-      timeMax: endDate.toISOString(),
-      singleEvents: true,
-      orderBy: 'startTime',
-      maxResults: 2500,
-    });
-
-    return (response.data.items || [])
-      .filter(ev => ev.start && (ev.start.date || ev.start.dateTime))
-      .map(ev => {
-        const allDay = !!ev.start.date;
-        return {
-          id: ev.id,
-          title: ev.summary || '(No title)',
-          allDay,
-          description: ev.description || '',
-          location: ev.location || '',
-          source: `google_${account.id}`,
-          color: account.color,
-          start: allDay ? ev.start.date : ev.start.dateTime,
-          end: allDay ? (ev.end && ev.end.date) : (ev.end && ev.end.dateTime),
-          connectionType: 'oauth',
-          editable: true,
-          accountId: account.id,
-          calendarId: 'primary',
-          googleEventId: ev.id,
-        };
-      });
+    calendarApi = google.calendar({ version: 'v3', auth: oauth2Client });
   } catch (err) {
-    console.error(`Google Calendar fetch failed for ${account.email}:`, err.message);
+    console.error(`Google Calendar auth failed for ${account.email}:`, err.message);
     return [];
   }
+
+  const perCalendar = await Promise.all(calendars.map(async cal => {
+    try {
+      const response = await calendarApi.events.list({
+        calendarId: cal.id,
+        timeMin: startDate.toISOString(),
+        timeMax: endDate.toISOString(),
+        singleEvents: true,
+        orderBy: 'startTime',
+        maxResults: 2500,
+      });
+
+      return (response.data.items || [])
+        .filter(ev => ev.start && (ev.start.date || ev.start.dateTime))
+        .map(ev => {
+          const allDay = !!ev.start.date;
+          return {
+            id: ev.id,
+            title: ev.summary || '(No title)',
+            allDay,
+            description: ev.description || '',
+            location: ev.location || '',
+            source: `google_${account.id}_${cal.id}`,
+            color: cal.color || account.color,
+            start: allDay ? ev.start.date : ev.start.dateTime,
+            end: allDay ? (ev.end && ev.end.date) : (ev.end && ev.end.dateTime),
+            connectionType: 'oauth',
+            editable: true,
+            accountId: account.id,
+            calendarId: cal.id,
+            calendarName: cal.displayName,
+            googleEventId: ev.id,
+          };
+        });
+    } catch (err) {
+      console.error(`Google Calendar fetch failed for ${account.email} / ${cal.id}:`, err.message);
+      return [];
+    }
+  }));
+
+  return perCalendar.flat();
 }
 
 // Same underlying calendar event can arrive via both CalDAV and OAuth when a
@@ -160,6 +203,25 @@ function dedupeCaldavAgainstGoogle(caldavEvents, googleEvents) {
       removed++;
       return false;
     }
+    return true;
+  });
+  return { events: deduped, removed };
+}
+
+// Enabling more than one calendar (own + a shared family calendar, say) can
+// pull in the same underlying event twice — Google hands back its own copy
+// on each calendar it's shared to. Same title/start match as above; keeps
+// whichever copy was fetched first.
+function dedupeGoogleEvents(googleEvents) {
+  const seen = new Set();
+  let removed = 0;
+  const deduped = googleEvents.filter(ev => {
+    const key = dedupeKey(ev);
+    if (seen.has(key)) {
+      removed++;
+      return false;
+    }
+    seen.add(key);
     return true;
   });
   return { events: deduped, removed };
@@ -635,6 +697,7 @@ function buildEvents(event, source) {
     description: event.description || '',
     location: event.location || '',
     source: source.id,
+    calendarName: source.name,
     color: source.color,
     connectionType: 'caldav',
     editable: false,
@@ -1031,9 +1094,9 @@ app.get('/api/events', async (req, res) => {
     ]);
 
     const caldavFlat = caldavResults.flat();
-    const googleFlat = googleResults.flat();
+    const { events: googleFlat, removed: removedGoogleDupes } = dedupeGoogleEvents(googleResults.flat());
     const { events: dedupedCaldav, removed } = dedupeCaldavAgainstGoogle(caldavFlat, googleFlat);
-    console.log(`[/api/events] ${removed} duplicate event(s) removed (CalDAV vs OAuth) for ${y}-${m + 1}`);
+    console.log(`[/api/events] ${removed} duplicate event(s) removed (CalDAV vs OAuth), ${removedGoogleDupes} removed (Google cross-calendar) for ${y}-${m + 1}`);
 
     res.json({ events: [...dedupedCaldav, ...googleFlat] });
   } catch (err) {
@@ -1044,6 +1107,15 @@ app.get('/api/events', async (req, res) => {
 
 // Google OAuth-connected calendars
 app.get('/api/auth/google/start', (req, res) => {
+  const { clientId, redirectUri } = getGoogleOAuthConfig();
+  if (!clientId || !redirectUri) {
+    // Without this guard an empty client_id sends the user straight to
+    // Google's own generic "invalid_client" error page instead of back to
+    // our settings screen, which is a dead end most people won't know how
+    // to recover from.
+    return res.redirect(`${GOOGLE_DASHBOARD_URL}?googleAuthError=missing_config`);
+  }
+
   const oauth2Client = createGoogleOAuthClient();
   const url = oauth2Client.generateAuthUrl({
     access_type: 'offline',
@@ -1054,6 +1126,33 @@ app.get('/api/auth/google/start', (req, res) => {
     ],
   });
   res.redirect(url);
+});
+
+// Google OAuth client config (Client ID/Secret/redirect URI), editable from
+// the Connected Accounts settings screen instead of requiring a .env edit +
+// container restart.
+app.get('/api/google-oauth-config', (req, res) => {
+  const cfg = getGoogleOAuthConfig();
+  res.json({
+    clientId: cfg.clientId,
+    hasClientSecret: !!cfg.clientSecret,
+    redirectUri: cfg.redirectUri,
+  });
+});
+
+app.post('/api/google-oauth-config', (req, res) => {
+  const { clientId, clientSecret, redirectUri } = req.body;
+  const existing = readJSON(FILES.googleOAuthConfig, {});
+  const next = {
+    clientId: clientId !== undefined ? clientId.trim() : (existing.clientId || ''),
+    // Only overwrite the secret if a new one was actually typed — the
+    // frontend never receives the saved secret back, so an empty submit
+    // means "leave it alone", not "clear it".
+    clientSecret: clientSecret ? clientSecret.trim() : (existing.clientSecret || ''),
+    redirectUri: redirectUri !== undefined ? redirectUri.trim() : (existing.redirectUri || ''),
+  };
+  writeJSON(FILES.googleOAuthConfig, next);
+  res.json({ ok: true, clientId: next.clientId, hasClientSecret: !!next.clientSecret, redirectUri: next.redirectUri });
 });
 
 app.get('/api/auth/google/callback', async (req, res) => {
@@ -1137,19 +1236,57 @@ app.get('/api/google-events/calendars', async (req, res) => {
     const oauth2Client = await getFreshGoogleClient(account);
     const calendar = google.calendar({ version: 'v3', auth: oauth2Client });
     const response = await calendar.calendarList.list();
+    const items = response.data.items || [];
 
-    const calendars = (response.data.items || []).map(cal => ({
-      id: cal.id,
-      summary: cal.summary,
-      backgroundColor: cal.backgroundColor,
-      primary: !!cal.primary,
-    }));
+    // Merge in whatever this account has already saved (enabled/displayName/
+    // color/order) so the picker reflects prior choices instead of resetting
+    // to Google's defaults every time it's opened. A calendar with no saved
+    // entry yet defaults to disabled — except the primary calendar, which
+    // matches the pre-picker behavior of always including it.
+    const saved = {};
+    (account.calendars || []).forEach(c => { saved[c.id] = c; });
+
+    const calendars = items
+      .map((cal, i) => {
+        const existing = saved[cal.id];
+        return {
+          id: cal.id,
+          summary: cal.summary,
+          primary: !!cal.primary,
+          enabled: existing ? existing.enabled !== false : !!cal.primary,
+          displayName: existing?.displayName ?? cal.summary,
+          color: existing?.color || cal.backgroundColor || '#3b82f6',
+          order: existing?.order ?? i,
+        };
+      })
+      .sort((a, b) => a.order - b.order);
 
     res.json({ calendars });
   } catch (err) {
     console.error('Google calendarList error:', err.message);
     res.status(500).json({ error: err.message });
   }
+});
+
+app.post('/api/google-events/calendars', (req, res) => {
+  const { accountId, calendars } = req.body;
+  if (!accountId) return res.status(400).json({ error: 'Missing accountId' });
+  if (!Array.isArray(calendars)) return res.status(400).json({ error: 'Missing calendars' });
+
+  const tokensData = readJSON(FILES.googleTokens, { accounts: [] });
+  const account = tokensData.accounts.find(a => a.id === accountId);
+  if (!account) return res.status(404).json({ error: 'Google account not found' });
+
+  account.calendars = calendars.map((c, i) => ({
+    id: c.id,
+    enabled: !!c.enabled,
+    displayName: (c.displayName || '').trim() || c.id,
+    color: c.color || '#3b82f6',
+    order: Number.isFinite(c.order) ? c.order : i,
+  }));
+  writeJSON(FILES.googleTokens, tokensData);
+
+  res.json({ ok: true, calendars: account.calendars });
 });
 
 app.post('/api/google-events/create', async (req, res) => {

@@ -139,9 +139,12 @@ export const api = {
   updateReminder: (id, message, dayOfWeek, recurrence, startDate, displayHours) => post('/reminders/update', { id, message, dayOfWeek, recurrence, startDate, displayHours }),
   deleteReminder: (id) => del(`/reminders/${id}`),
   startGoogleAuth: () => { window.location.href = '/api/auth/google/start'; },
+  getGoogleOAuthConfig: () => get('/google-oauth-config'),
+  saveGoogleOAuthConfig: (clientId, clientSecret, redirectUri) => post('/google-oauth-config', { clientId, clientSecret, redirectUri }),
   getGoogleAccounts: () => get('/auth/google/accounts'),
   disconnectGoogleAccount: (id) => del(`/auth/google/accounts/${id}`),
   getGoogleCalendars: (accountId) => get(`/google-events/calendars?accountId=${encodeURIComponent(accountId)}`),
+  saveGoogleCalendars: (accountId, calendars) => post('/google-events/calendars', { accountId, calendars }),
   createGoogleEvent: (accountId, calendarId, title, startDateTime, endDateTime, allDay, recurrence, description, location) =>
     post('/google-events/create', { accountId, calendarId, title, startDateTime, endDateTime, allDay, recurrence, description, location }),
   updateGoogleEvent: (accountId, calendarId, eventId, title, startDateTime, endDateTime, allDay, description, location) =>

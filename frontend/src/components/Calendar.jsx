@@ -57,7 +57,7 @@ function EventDetail({ events, date, onClose, onChanged }) {
                       {ev.location && <div style={modal.eventLocation}><Icon name="map-pin" size={13} /> {ev.location}</div>}
                       {ev.description && <div style={modal.eventDesc}>{ev.description}</div>}
                     </div>
-                    <div style={{ ...modal.calBadge, background: ev.color + '22', color: ev.color }}>{ev.source}</div>
+                    <div style={{ ...modal.calBadge, background: ev.color + '22', color: ev.color }}>{ev.calendarName || ev.source}</div>
                   </div>
 
                   {!ev.editable && (
@@ -583,9 +583,17 @@ function DayGrid({ date, events, onChanged }) {
   );
 }
 
+// Week view gives each row the full grid height; 2-Week splits that same
+// height between two rows, so it only has about half as much room per day.
+// One shared cap doesn't fit both — the 2-Week cap stays at its original,
+// already-tuned value, and only the single-row Week view gets more.
+const WEEK_VIEW_MAX_EVENTS = 9;
+const TWO_WEEK_VIEW_MAX_EVENTS = 5;
+
 function WeekGrid({ start, numDays, eventsForDate, today, onChanged }) {
   const [openDate, setOpenDate] = useState(null);
   const rows = numDays / 7;
+  const maxVisible = rows === 1 ? WEEK_VIEW_MAX_EVENTS : TWO_WEEK_VIEW_MAX_EVENTS;
   const days = [];
   for (let i = 0; i < numDays; i++) days.push(addDays(start, i));
 
@@ -603,13 +611,13 @@ function WeekGrid({ start, numDays, eventsForDate, today, onChanged }) {
                   <div style={{ ...weekStyles.dayNum, ...(isToday ? weekStyles.dayNumToday : {}) }}>{d.getDate()}</div>
                 </div>
                 <div style={weekStyles.pills}>
-                  {dayEvents.slice(0, 5).map((ev, j) => (
+                  {dayEvents.slice(0, maxVisible).map((ev, j) => (
                     <div key={j} style={{ ...weekStyles.pill, background: ev.color + '22', color: ev.color, borderLeft: `3px solid ${ev.color}` }}>
                       {ev.title}
                     </div>
                   ))}
-                  {dayEvents.length > 5 && (
-                    <div style={{ ...weekStyles.more, ...(isToday ? weekStyles.moreToday : {}) }}>+{dayEvents.length - 5} more</div>
+                  {dayEvents.length > maxVisible && (
+                    <div style={{ ...weekStyles.more, ...(isToday ? weekStyles.moreToday : {}) }}>+{dayEvents.length - maxVisible} more</div>
                   )}
                 </div>
               </div>
@@ -681,14 +689,23 @@ const weekStyles = {
     borderRight: '1px solid var(--border)', borderBottom: '1px solid var(--border)',
     padding: '8px 6px', cursor: 'pointer', overflow: 'hidden', display: 'flex', flexDirection: 'column', gap: 6,
   },
-  colToday: { background: 'var(--accent)' },
+  // A flat var(--accent) wash was too saturated at this size (a whole day
+  // column, not a small badge) — it fought with the event pills' own tinted
+  // backgrounds and hurt text contrast. Mixing a small amount of accent into
+  // the surface color keeps the "this is today" cue without drowning out
+  // whatever's inside the column.
+  colToday: { background: 'color-mix(in srgb, var(--accent) 22%, var(--surface))' },
   colHead: { display: 'flex', alignItems: 'center', gap: 6 },
   dow: { fontSize: 12, fontWeight: 700, color: 'var(--text-3)', letterSpacing: '0.05em' },
-  dowToday: { color: 'white' },
+  dowToday: { color: 'var(--text-1)' },
   dayNum: { fontSize: 15, fontWeight: 600, color: 'var(--text-1)', width: 24, height: 24, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '50%' },
-  dayNumToday: { background: 'white', color: '#0a1620' },
+  dayNumToday: { background: 'var(--accent)', color: 'white' },
   pills: { display: 'flex', flexDirection: 'column', gap: 3 },
-  pill: { fontSize: 13, fontWeight: 500, padding: '3px 6px', borderRadius: 4, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' },
+  pill: {
+    fontSize: 11, fontWeight: 500, padding: '3px 6px', borderRadius: 4, lineHeight: 1.3,
+    whiteSpace: 'normal', overflow: 'hidden', textOverflow: 'ellipsis',
+    display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical',
+  },
   more: { fontSize: 12, color: 'var(--text-3)', fontWeight: 600 },
   moreToday: { color: 'white' },
 };
