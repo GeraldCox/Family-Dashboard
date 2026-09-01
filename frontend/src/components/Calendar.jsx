@@ -361,6 +361,7 @@ export default function Calendar({ view = 'month', filters = {}, refreshToken })
   }
 
   return (
+    <div style={styles.outer}>
     <div style={styles.wrap}>
       <div style={styles.header}>
         <button style={styles.navBtn} onClick={() => handleNav(-1)}>‹</button>
@@ -512,6 +513,7 @@ export default function Calendar({ view = 'month', filters = {}, refreshToken })
       )}
 
     </div>
+    </div>
   );
 }
 
@@ -633,7 +635,15 @@ function WeekGrid({ start, numDays, eventsForDate, today, onChanged }) {
 }
 
 const styles = {
-  wrap: { display: 'flex', flexDirection: 'column', height: '100%', background: 'var(--surface)', borderRadius: 'var(--radius-lg)', border: '0.5px solid var(--border)', overflow: 'hidden', boxShadow: 'var(--shadow-sm)' },
+  // Split from `wrap` on purpose: an element with rounded corners AND
+  // overflow:hidden AND a box-shadow all at once is a known trigger for
+  // GPU tile-corruption artifacts (scattered white specks) on some Android
+  // WebView/GPU driver combos, especially on a large card like this one that
+  // repaints often as the calendar view/date changes. Shadow lives on this
+  // unclipped outer element instead, so the actual clipped/rounded surface
+  // (`wrap`) never carries a shadow itself.
+  outer: { height: '100%', borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-sm)' },
+  wrap: { display: 'flex', flexDirection: 'column', height: '100%', background: 'var(--surface)', borderRadius: 'var(--radius-lg)', border: '0.5px solid var(--border)', overflow: 'hidden' },
   header: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 22px', borderBottom: '0.5px solid var(--border)', flexShrink: 0 },
   monthTitle: { fontSize: 21, fontWeight: 600, color: 'var(--text-1)', fontFamily: 'var(--font-heading)' },
   monthTitleMobile: { fontSize: 16 },
@@ -673,10 +683,13 @@ const dayStyles = {
   hourLabel: { height: 48, fontSize: 13, color: 'var(--text-3)', textAlign: 'right', paddingRight: 10, paddingTop: 2, fontWeight: 500 },
   eventsCol: { flex: 1, position: 'relative', borderLeft: '1px solid var(--border)' },
   hourLine: { height: 48, borderBottom: '1px solid var(--border)' },
+  // No box-shadow here — same reasoning as styles.outer/wrap above. This
+  // one was a subtle 1px shadow anyway, not worth reintroducing via a
+  // wrapper element for every event block.
   eventBlock: {
     position: 'absolute', left: 8, right: 8, borderRadius: 6, padding: '4px 8px',
     fontSize: 14, fontWeight: 600, overflow: 'hidden', cursor: 'pointer', display: 'flex',
-    flexDirection: 'column', gap: 2, boxShadow: '0 1px 2px rgba(0,0,0,0.08)',
+    flexDirection: 'column', gap: 2,
   },
   eventTitle: { whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' },
   eventTime: { fontSize: 12, opacity: 0.8, fontWeight: 500 },
