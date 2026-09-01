@@ -165,6 +165,7 @@ async function fetchGoogleEvents(account, startDate, endDate) {
             location: ev.location || '',
             source: `google_${account.id}_${cal.id}`,
             color: cal.color || account.color,
+            calendarOrder: cal.order ?? 0,
             start: allDay ? ev.start.date : ev.start.dateTime,
             end: allDay ? (ev.end && ev.end.date) : (ev.end && ev.end.dateTime),
             connectionType: 'oauth',
@@ -225,6 +226,20 @@ function dedupeGoogleEvents(googleEvents) {
     return true;
   });
   return { events: deduped, removed };
+}
+
+// All-day events (no specific time to sort by) go first, ordered by their
+// source calendar's position in the Google calendar picker — e.g. Holidays
+// above Birthdays. Timed events follow, sorted by start time; calendar order
+// intentionally has no effect there. Array.prototype.sort is stable, so
+// equal-rank events keep their original relative order rather than needing
+// an explicit tiebreaker.
+function sortEventsForDisplay(events) {
+  return [...events].sort((a, b) => {
+    if (a.allDay !== b.allDay) return a.allDay ? -1 : 1;
+    if (a.allDay) return (a.calendarOrder ?? 0) - (b.calendarOrder ?? 0);
+    return (a.start || '').localeCompare(b.start || '');
+  });
 }
 
 const TIME_OF_DAY_ORDER = ['morning', 'afternoon', 'evening', 'bedtime'];
@@ -699,6 +714,10 @@ function buildEvents(event, source) {
     source: source.id,
     calendarName: source.name,
     color: source.color,
+    // CalDAV sources don't have a user-orderable position (only the Google
+    // multi-calendar picker does) — sort them after any explicitly ordered
+    // Google calendar's all-day events by default.
+    calendarOrder: 999,
     connectionType: 'caldav',
     editable: false,
   };
@@ -1098,7 +1117,7 @@ app.get('/api/events', async (req, res) => {
     const { events: dedupedCaldav, removed } = dedupeCaldavAgainstGoogle(caldavFlat, googleFlat);
     console.log(`[/api/events] ${removed} duplicate event(s) removed (CalDAV vs OAuth), ${removedGoogleDupes} removed (Google cross-calendar) for ${y}-${m + 1}`);
 
-    res.json({ events: [...dedupedCaldav, ...googleFlat] });
+    res.json({ events: sortEventsForDisplay([...dedupedCaldav, ...googleFlat]) });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: err.message });

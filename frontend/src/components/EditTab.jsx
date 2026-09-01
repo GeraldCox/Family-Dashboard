@@ -2186,6 +2186,9 @@ function AccountCalendarsPicker({ accountId, isMobile }) {
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [hoverIndex, setHoverIndex] = useState(null);
+  const [dragIndex, setDragIndex] = useState(null);
+  const [dragOverIndex, setDragOverIndex] = useState(null);
 
   useEffect(() => {
     api.getGoogleCalendars(accountId)
@@ -2195,6 +2198,41 @@ function AccountCalendarsPicker({ accountId, isMobile }) {
 
   function updateCal(id, patch) {
     setCalendars(prev => prev.map(c => c.id === id ? { ...c, ...patch } : c));
+  }
+
+  function resetDrag() {
+    setDragIndex(null);
+    setDragOverIndex(null);
+  }
+
+  function handleDragStart(e, i) {
+    setDragIndex(i);
+    e.dataTransfer.effectAllowed = 'move';
+    try { e.dataTransfer.setData('text/plain', String(i)); } catch { /* ignore */ }
+  }
+
+  function handleDragOver(e, i) {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    if (dragIndex === null || dragIndex === i) return;
+    if (dragOverIndex !== i) setDragOverIndex(i);
+  }
+
+  function handleDrop(e, i) {
+    e.preventDefault();
+    if (dragIndex === null || dragIndex === i) { resetDrag(); return; }
+
+    setCalendars(prev => {
+      const arr = [...prev];
+      const [moved] = arr.splice(dragIndex, 1);
+      const insertIndex = i > dragIndex ? i - 1 : i;
+      arr.splice(insertIndex, 0, moved);
+      // Reassign order to match the new positions — this is what actually
+      // drives all-day event sort order on the dashboard, not array position
+      // alone, since the saved order is what gets sent back to the server.
+      return arr.map((c, idx) => ({ ...c, order: idx }));
+    });
+    resetDrag();
   }
 
   async function save() {
@@ -2214,28 +2252,54 @@ function AccountCalendarsPicker({ accountId, isMobile }) {
 
   return (
     <div style={s.calPicker}>
-      {calendars.map(cal => (
-        <div key={cal.id} style={s.calPickerRow}>
-          <input
-            type="checkbox"
-            checked={cal.enabled}
-            onChange={e => updateCal(cal.id, { enabled: e.target.checked })}
-            style={{ ...s.toggleCheckbox, marginLeft: 0 }}
-          />
-          <input
-            type="color"
-            style={s.calColorInput}
-            value={cal.color}
-            onChange={e => updateCal(cal.id, { color: e.target.value })}
-          />
-          <div style={s.calPickerNames}>
+      {calendars.length > 1 && (
+        <div style={{ ...s.emptySmall, marginBottom: 2 }}>
+          Drag to reorder — controls which calendar's all-day events show first. Timed events always sort by time.
+        </div>
+      )}
+      {calendars.map((cal, i) => (
+        <div
+          key={cal.id}
+          style={s.calPickerRowWrap}
+          onDragOver={e => handleDragOver(e, i)}
+          onDrop={e => handleDrop(e, i)}
+          onMouseEnter={() => setHoverIndex(i)}
+          onMouseLeave={() => setHoverIndex(prev => (prev === i ? null : prev))}
+        >
+          {dragOverIndex === i && dragIndex !== null && dragIndex !== i && (
+            <div style={s.calDragPlaceholder} />
+          )}
+          <div style={{ ...s.calPickerRow, opacity: dragIndex === i ? 0.4 : 1 }}>
+            <div
+              draggable
+              onDragStart={e => handleDragStart(e, i)}
+              onDragEnd={resetDrag}
+              style={{ ...s.calDragHandle, opacity: hoverIndex === i || dragIndex === i ? 1 : 0 }}
+              title="Drag to reorder"
+            >
+              ⠿
+            </div>
             <input
-              style={{ ...s.nameInput, ...(isMobile ? s.fullWidthInput : {}) }}
-              type="text"
-              value={cal.displayName}
-              onChange={e => updateCal(cal.id, { displayName: e.target.value })}
+              type="checkbox"
+              checked={cal.enabled}
+              onChange={e => updateCal(cal.id, { enabled: e.target.checked })}
+              style={{ ...s.toggleCheckbox, marginLeft: 0 }}
             />
-            {cal.displayName !== cal.summary && <span style={s.calOriginalName}>{cal.summary}</span>}
+            <input
+              type="color"
+              style={s.calColorInput}
+              value={cal.color}
+              onChange={e => updateCal(cal.id, { color: e.target.value })}
+            />
+            <div style={s.calPickerNames}>
+              <input
+                style={{ ...s.nameInput, ...(isMobile ? s.fullWidthInput : {}) }}
+                type="text"
+                value={cal.displayName}
+                onChange={e => updateCal(cal.id, { displayName: e.target.value })}
+              />
+              {cal.displayName !== cal.summary && <span style={s.calOriginalName}>{cal.summary}</span>}
+            </div>
           </div>
         </div>
       ))}
@@ -2669,7 +2733,17 @@ const s = {
     display: 'flex', flexDirection: 'column', gap: 6,
     padding: '10px 11px 11px 39px', marginTop: -2, marginBottom: 6,
   },
-  calPickerRow: { display: 'flex', alignItems: 'center', gap: 8 },
+  calPickerRowWrap: { display: 'flex', flexDirection: 'column' },
+  calPickerRow: { display: 'flex', alignItems: 'center', gap: 8, transition: 'opacity 0.15s' },
+  calDragHandle: {
+    width: 14, flexShrink: 0, textAlign: 'center',
+    fontSize: 16, lineHeight: 1, color: 'var(--text-3)', cursor: 'grab',
+    userSelect: 'none', transition: 'opacity 0.15s',
+  },
+  calDragPlaceholder: {
+    height: 3, borderRadius: 2, background: 'var(--blue)',
+    margin: '0 0 6px 22px', opacity: 0.6,
+  },
   calColorInput: {
     width: 34, height: 30, padding: 2, borderRadius: 6, flexShrink: 0,
     border: '1px solid var(--border-md)', background: 'var(--bg)', cursor: 'pointer',
