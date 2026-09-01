@@ -649,11 +649,18 @@ const styles = {
   monthTitleMobile: { fontSize: 16 },
   loading: { fontSize: 16, color: 'var(--text-3)' },
   navBtn: { width: 42, height: 42, borderRadius: 'var(--radius-sm)', background: 'var(--bg)', fontSize: 24, color: 'var(--text-2)', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '0.5px solid var(--border)', cursor: 'pointer' },
-  dowRow: { display: 'grid', gridTemplateColumns: 'repeat(7,1fr)', padding: '0 0', flexShrink: 0 },
-  dow: { textAlign: 'center', fontSize: 13, fontWeight: 600, color: 'var(--text-3)', padding: '6px 0', letterSpacing: '0.06em', borderBottom: '0.5px solid var(--border)' },
+  // CSS Grid (repeat(7,1fr)) swapped for Flexbox here and in weekStyles.row
+  // below — visually identical (7 equal columns), but Flexbox is a much
+  // more mature rendering path than Grid, which has a real history of
+  // Android WebView rasterization bugs (this matched exactly: Day view,
+  // the one view that never used Grid, was the one view not showing the
+  // artifacts). Each cell/dow gets a fixed flex-basis instead of relying
+  // on implicit grid track sizing.
+  dowRow: { display: 'flex', padding: '0 0', flexShrink: 0 },
+  dow: { flex: '0 0 calc(100% / 7)', textAlign: 'center', fontSize: 13, fontWeight: 600, color: 'var(--text-3)', padding: '6px 0', letterSpacing: '0.06em', borderBottom: '0.5px solid var(--border)' },
   gridWrap: { flex: 1, minHeight: 0, overflow: 'hidden' },
-  grid: { display: 'grid', gridTemplateColumns: 'repeat(7,1fr)', height: '100%' },
-  cell: { padding: '4px 4px 2px', borderRight: '1px solid var(--border)', borderBottom: '1px solid var(--border)', cursor: 'pointer', transition: 'background 0.12s', overflow: 'hidden', position: 'relative' },
+  grid: { display: 'flex', flexWrap: 'wrap', height: '100%' },
+  cell: { flex: '0 0 calc(100% / 7)', padding: '4px 4px 2px', borderRight: '1px solid var(--border)', borderBottom: '1px solid var(--border)', cursor: 'pointer', transition: 'background 0.12s', overflow: 'hidden', position: 'relative' },
   otherMonth: { background: 'var(--surface2)', opacity: 0.5 },
   todayCell: { background: 'var(--accent)' },
   selectedCell: { background: 'rgba(60,126,195,0.15)', outline: '2px solid var(--accent-blue)', outlineOffset: -2 },
@@ -697,8 +704,11 @@ const dayStyles = {
 
 const weekStyles = {
   wrap: { flex: 1, display: 'flex', flexDirection: 'column', overflowY: 'auto', gap: 1 },
-  row: { display: 'grid', gridTemplateColumns: 'repeat(7,1fr)', flex: 1, minHeight: 160 },
+  // CSS Grid swapped for Flexbox — see the comment on styles.grid/dowRow
+  // above for why.
+  row: { display: 'flex', flex: 1, minHeight: 160 },
   col: {
+    flex: '1 1 0%', minWidth: 0,
     borderRight: '1px solid var(--border)', borderBottom: '1px solid var(--border)',
     padding: '8px 6px', cursor: 'pointer', overflow: 'hidden', display: 'flex', flexDirection: 'column', gap: 6,
   },
