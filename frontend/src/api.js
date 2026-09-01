@@ -60,6 +60,7 @@ export const api = {
   deleteScheduleSlot: (index) => post('/schedule/delete', { index }),
   reorderSchedule: (slots) => post('/schedule/reorder', { slots }),
   calendars: () => get('/calendars'),
+  calendarChips: () => get('/calendar-chips'),
   searchRecipes: (q) => get(`/recipes/search?q=${encodeURIComponent(q)}`),
   scrapeRecipe: (url) => get(`/recipes/scrape?url=${encodeURIComponent(url)}`),
   getRecipeDetails: (id) => get(`/recipes/${encodeURIComponent(id)}/details`),

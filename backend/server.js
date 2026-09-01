@@ -1429,6 +1429,28 @@ app.get('/api/calendars', (req, res) => {
   res.json({ sources: safe });
 });
 
+// Filter-chip list for the Calendar page: one chip per enabled calendar
+// across every connected Google account, ordered to match the drag order
+// set in Edit > Calendar. Reuses getEnabledCalendars so the chip id always
+// matches the `source` field fetchGoogleEvents actually tags events with —
+// no separate id-construction logic to drift out of sync.
+app.get('/api/calendar-chips', (req, res) => {
+  const tokensData = readJSON(FILES.googleTokens, { accounts: [] });
+  const chips = [];
+  tokensData.accounts.forEach(account => {
+    getEnabledCalendars(account).forEach(cal => {
+      chips.push({
+        id: `google_${account.id}_${cal.id}`,
+        name: cal.displayName || cal.id,
+        color: cal.color || account.color,
+        order: cal.order ?? 0,
+      });
+    });
+  });
+  chips.sort((a, b) => a.order - b.order);
+  res.json({ sources: chips });
+});
+
 app.post('/api/calendars', (req, res) => {
   const data = readJSON(FILES.calendars, { sources: [] });
   const { id, name, color, url, username, password } = req.body;

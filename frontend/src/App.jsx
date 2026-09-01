@@ -98,7 +98,7 @@ export default function App() {
   }, [isDark]);
 
   useEffect(() => {
-    api.calendars().then(res => setCalendarSources(res.sources || [])).catch(console.error);
+    api.calendarChips().then(res => setCalendarSources(res.sources || [])).catch(console.error);
   }, []);
 
   useEffect(() => {
