@@ -12,7 +12,7 @@ const DEFAULT_COUNTDOWN_COLOR = '#3b82f6';
 
 const SUB_TABS = [
   { id: 'general',     label: 'General' },
-  { id: 'people',      label: 'People' },
+  { id: 'people',      label: 'Family' },
   { id: 'accounts',    label: 'Calendar' },
   { id: 'chores',      label: 'Chores' },
   { id: 'routines',    label: 'Routines' },
