@@ -104,7 +104,6 @@ export default function WeatherBar() {
   return (
     <div style={{ ...styles.bar, ...(isMobile ? styles.barMobile : {}) }}>
       {!isMobile && <CountdownWidget />}
-      {!isMobile && <div style={styles.spacer} />}
 
       <div style={{ ...styles.current, ...(isMobile ? styles.currentMobile : {}) }}>
         <div style={styles.iconCol}>
@@ -146,32 +145,34 @@ const styles = {
   barMobile: {
     gap: 10, padding: '8px 12px', justifyContent: 'space-between',
   },
-  // Absorbs the banner's leftover space so weather/forecast/clock sit as a
-  // tight group on the right, instead of the countdown strip stretching.
-  spacer: { flex: 1, minWidth: 0 },
-  // Shrinkable too (after forecast has already given up all its room) so
-  // the clock still can't be pushed off-screen on extremely narrow
-  // displays — humidity/wind and the location text clip first via
-  // overflow:hidden, before the icon+temperature would ever be touched.
-  current: { display: 'flex', alignItems: 'center', gap: 12, minWidth: 140, flexShrink: 1, overflow: 'hidden' },
+  // Shrinkable, but with a much higher floor than before — forecast is the
+  // one that should give up room first (it has 5 days' worth of slack to
+  // spare), not the weather block's own condition/humidity/wind text being
+  // crushed to illegibility while forecast still looks comfortable.
+  current: { display: 'flex', alignItems: 'center', gap: 10, minWidth: 230, flexShrink: 1, overflow: 'hidden' },
   currentMobile: { minWidth: 0, gap: 10 },
   // Icon + condition label as a centered stack. The icon itself never
   // shrinks (flexShrink:0 built into Icon.jsx), but this column as a whole
   // can — condLabel truncates under pressure so a long condition name (e.g.
   // "Thunderstorm") can't shrink the temperature below it in priority.
+  // width:60 sets its preferred size (flex-basis); condLabel below is
+  // width:100% of *this exact box*, not an independently-sized maxWidth, so
+  // it's structurally impossible for it to exceed whatever this column
+  // actually ends up rendering at — no more parent/child size mismatch.
   iconCol: {
-    flexShrink: 1, minWidth: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2,
+    flexShrink: 1, minWidth: 0, width: 60, overflow: 'hidden',
+    display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0,
   },
   condLabel: {
-    fontSize: 12, color: 'var(--text-2)', textAlign: 'center', lineHeight: 1.2, maxWidth: 72,
-    minWidth: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+    fontSize: 11, fontFamily: 'var(--font-heading)', color: 'var(--text-2)', textAlign: 'center', lineHeight: 1.2,
+    width: '100%', overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis',
   },
   // Temp + location, left-justified under each other. Never shrinks — the
   // temperature is the one thing that should always render at full size.
   tempCol: { flexShrink: 0, minWidth: 0 },
   temp: { fontSize: 28, fontWeight: 600, lineHeight: 1, color: 'var(--text-1)', fontFamily: 'var(--font-heading)' },
   desc: {
-    fontSize: 14, color: 'var(--text-2)', marginTop: 2,
+    fontSize: 14, fontFamily: 'var(--font-heading)', color: 'var(--text-2)', marginTop: 2,
     whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 220,
   },
   meta: {
@@ -181,7 +182,10 @@ const styles = {
   metaItem: { display: 'flex', alignItems: 'center', gap: 5 },
   // Shrinkable (unlike current/clock) — the least-essential info, so it's
   // first to give up room when the banner is tight. Scrolls with a fade
-  // rather than hard-clipping, same as the countdown strip.
+  // rather than hard-clipping, same as the countdown strip. No flexGrow —
+  // it renders at its natural size (however many days fit) and shrinks
+  // first when needed, but doesn't claim extra space beyond that, which
+  // was squeezing the weather block's own text down to illegibility.
   forecastWrap: { position: 'relative', flexShrink: 1, minWidth: 0, height: '100%' },
   forecast: {
     display: 'flex', alignItems: 'center', gap: 8, height: '100%',
