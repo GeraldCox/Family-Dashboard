@@ -19,7 +19,7 @@ import { useScreenSize } from './hooks/useScreenSize';
 import { useDayNight } from './hooks/useDayNight';
 
 const DEFAULT_SCREENSAVER_SETTINGS = { inactivityMinutes: 5, transitionSeconds: 6, brightness: 100 };
-const DEFAULT_GENERAL_SETTINGS = { hiddenNavItems: [] };
+const DEFAULT_GENERAL_SETTINGS = { hiddenNavItems: [], homeCalendarView: 'month' };
 const ACTIVITY_EVENTS = ['mousemove', 'touchstart', 'keydown', 'click'];
 
 const VIEW_OPTIONS = [
@@ -173,7 +173,7 @@ export default function App() {
 
         <div style={s.content}>
           {tab === 'home' && (
-            <HomeTab view={calendarView} filters={calendarFilters} />
+            <HomeTab view={generalSettings.homeCalendarView || 'month'} filters={calendarFilters} />
           )}
 
           {tab === 'calendar' && (

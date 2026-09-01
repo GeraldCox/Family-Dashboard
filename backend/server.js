@@ -259,7 +259,8 @@ const TOGGLEABLE_NAV_ITEMS = ['chores', 'tasks', 'meals', 'shopping', 'homeschoo
 // Time of day by which each routine period's steps should be done, used to
 // flag an incomplete routine as overdue and to auto-collapse a completed one.
 const DEFAULT_ROUTINE_TIME_CUTOFFS = { morning: '11:00', afternoon: '17:00', evening: '21:00', bedtime: '23:59' };
-const DEFAULT_GENERAL_SETTINGS = { hiddenNavItems: [], countdownHideAfterDays: 1, routineTimeCutoffs: DEFAULT_ROUTINE_TIME_CUTOFFS };
+const VALID_CALENDAR_VIEWS = ['day', 'week', '2week', 'month'];
+const DEFAULT_GENERAL_SETTINGS = { hiddenNavItems: [], countdownHideAfterDays: 1, routineTimeCutoffs: DEFAULT_ROUTINE_TIME_CUTOFFS, homeCalendarView: 'month' };
 const HHMM_RE = /^([01]\d|2[0-3]):[0-5]\d$/;
 
 function parseRoutineTimeCutoffs(input, fallback) {
@@ -2669,7 +2670,7 @@ app.get('/api/settings/general', (req, res) => {
 
 app.post('/api/settings/general', (req, res) => {
   const current = readJSON(FILES.generalSettings, DEFAULT_GENERAL_SETTINGS);
-  const { hiddenNavItems, countdownHideAfterDays, routineTimeCutoffs } = req.body;
+  const { hiddenNavItems, countdownHideAfterDays, routineTimeCutoffs, homeCalendarView } = req.body;
   const parsedHideAfterDays = Number(countdownHideAfterDays);
   const settings = {
     hiddenNavItems: Array.isArray(hiddenNavItems)
@@ -2679,6 +2680,9 @@ app.post('/api/settings/general', (req, res) => {
       ? parsedHideAfterDays
       : current.countdownHideAfterDays,
     routineTimeCutoffs: parseRoutineTimeCutoffs(routineTimeCutoffs, current.routineTimeCutoffs || DEFAULT_ROUTINE_TIME_CUTOFFS),
+    homeCalendarView: VALID_CALENDAR_VIEWS.includes(homeCalendarView)
+      ? homeCalendarView
+      : (current.homeCalendarView || 'month'),
   };
   writeJSON(FILES.generalSettings, settings);
   res.json({ ok: true, settings });

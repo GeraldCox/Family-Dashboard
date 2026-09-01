@@ -39,7 +39,7 @@ export default function EditTab({ onPreviewScreensaver, onScreensaverSettingsSav
         {subTab === 'people' && <PeopleEditor isMobile={isMobile} />}
         {subTab === 'countdowns' && <CountdownsEditor isMobile={isMobile} />}
         {subTab === 'reminders' && <RemindersEditor isMobile={isMobile} />}
-        {subTab === 'accounts' && <ConnectedAccountsEditor isMobile={isMobile} />}
+        {subTab === 'accounts' && <ConnectedAccountsEditor isMobile={isMobile} onGeneralSettingsSaved={onGeneralSettingsSaved} />}
         {subTab === 'screensaver' && (
           <ScreensaverEditor
             isMobile={isMobile}
@@ -2100,7 +2100,61 @@ function GoogleOAuthConfigCard({ isMobile, onSaved }) {
   );
 }
 
-function ConnectedAccountsEditor({ isMobile }) {
+const HOME_CALENDAR_VIEW_OPTIONS = [
+  { id: 'day',   label: 'Day' },
+  { id: 'week',  label: 'Week' },
+  { id: '2week', label: '2-Week' },
+  { id: 'month', label: 'Month' },
+];
+
+// The Home tab's mini calendar always shows this fixed view — unlike the
+// full Calendar page, where switching views is just a live, per-visit
+// choice that doesn't change what Home shows.
+function HomeCalendarViewCard({ isMobile, onGeneralSettingsSaved }) {
+  const [view, setView] = useState(null);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    api.getGeneralSettings().then(res => setView(res.homeCalendarView || 'month')).catch(console.error);
+  }, []);
+
+  async function selectView(id) {
+    if (id === view) return;
+    setView(id);
+    setSaving(true);
+    try {
+      const res = await api.saveGeneralSettings({ homeCalendarView: id });
+      onGeneralSettingsSaved?.(res.settings);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  if (view === null) return null;
+
+  return (
+    <div style={s.card}>
+      <div style={{ ...s.personName, display: 'flex', alignItems: 'center', gap: 8 }}><Icon name="calendar" size={18} /> Home Calendar View</div>
+      <div style={{ ...s.emptySmall, marginBottom: 10 }}>
+        Which view the Home tab's calendar always shows. Switching views on the Calendar page itself is just a live, per-visit choice and doesn't change this.
+      </div>
+      <div style={{ ...s.addRow, ...(isMobile ? s.addRowMobile : {}) }}>
+        {HOME_CALENDAR_VIEW_OPTIONS.map(opt => (
+          <button
+            key={opt.id}
+            style={{ ...s.addBtn, background: view === opt.id ? 'var(--blue)' : 'var(--surface2)', color: view === opt.id ? 'white' : 'var(--text-2)' }}
+            onClick={() => selectView(opt.id)}
+            disabled={saving}
+          >
+            {opt.label}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function ConnectedAccountsEditor({ isMobile, onGeneralSettingsSaved }) {
   const [accounts, setAccounts] = useState(null);
   const [toast, setToast] = useState('');
   const [authError, setAuthError] = useState('');
@@ -2141,6 +2195,8 @@ function ConnectedAccountsEditor({ isMobile }) {
 
   return (
     <>
+      <HomeCalendarViewCard isMobile={isMobile} onGeneralSettingsSaved={onGeneralSettingsSaved} />
+
       <GoogleOAuthConfigCard isMobile={isMobile} onSaved={() => setAuthError('')} />
 
       <div style={s.card}>
