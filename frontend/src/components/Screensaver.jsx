@@ -8,6 +8,7 @@ export default function Screensaver({ transitionSeconds = 6, brightness = 100, o
   const [index, setIndex] = useState(0);
   const [now, setNow] = useState(new Date());
   const preloadRef = useRef(null);
+  const overlayRef = useRef(null);
 
   useEffect(() => {
     api.getPhotos().then(list => {
@@ -52,11 +53,30 @@ export default function Screensaver({ transitionSeconds = 6, brightness = 100, o
 
   const hasPhotos = photos.length > 0;
 
+  // touchstart dismisses (unmounting this overlay) before the browser gets to
+  // touchend, so without preventDefault it then synthesizes a compatibility
+  // click at those coordinates — landing on whatever's now underneath instead
+  // of this overlay, e.g. opening a calendar day behind the screensaver.
+  // React registers its own onTouchStart listener as passive by default, so
+  // preventDefault there is silently a no-op — this needs a native listener
+  // attached directly with passive:false to actually suppress the synthetic
+  // click.
+  useEffect(() => {
+    const el = overlayRef.current;
+    if (!el) return;
+    function handleTouchStart(e) {
+      e.preventDefault();
+      onDismiss();
+    }
+    el.addEventListener('touchstart', handleTouchStart, { passive: false });
+    return () => el.removeEventListener('touchstart', handleTouchStart);
+  }, [onDismiss]);
+
   return (
     <div
+      ref={overlayRef}
       style={{ ...s.overlay, filter: `brightness(${brightness}%)` }}
       onClick={onDismiss}
-      onTouchStart={onDismiss}
     >
       {hasPhotos ? (
         <>
