@@ -6,49 +6,57 @@ export const TABS = [
   { id: 'calendar',   icon: 'calendar',        label: 'Calendar' },
   { id: 'chores',     icon: 'check-square',    label: 'Chores' },
   { id: 'tasks',      icon: 'clipboard-list',  label: 'Tasks' },
-  { id: 'meals',      icon: 'utensils',        label: 'Meals' },
+  { id: 'meals',      icon: 'chef-hat',        label: 'Meals' },
   { id: 'shopping',   icon: 'shopping-cart',   label: 'Shopping' },
   { id: 'homeschool', icon: 'graduation-cap',  label: 'Homeschool' },
   { id: 'beach',      icon: 'waves',           label: 'Beach' },
   { id: 'timer',      icon: 'timer',           label: 'Timer' },
-  { id: 'edit',       icon: 'pencil',          label: 'Edit' },
+  { id: 'edit',       icon: 'settings',        label: 'Manage' },
 ];
 
-// Nav items the household can hide via Edit → General. Everything else
-// (home, edit, etc.) always shows so the dashboard can't be navigated into a corner.
+// Nav items the household can hide via Manage → General. Everything else
+// (home, etc.) always shows so the dashboard can't be navigated into a corner.
 export const TOGGLEABLE_TAB_IDS = ['chores', 'tasks', 'meals', 'shopping', 'homeschool', 'beach', 'timer'];
+
+function TabButton({ t, active, isMobile, onClick }) {
+  return (
+    <button
+      style={{ ...s.item, ...(isMobile ? s.itemMobile : {}) }}
+      onClick={onClick}
+      aria-label={t.label}
+      aria-current={active ? 'page' : undefined}
+      title={t.label}
+    >
+      <div style={{ ...s.pill, ...(active ? s.pillActive : {}) }}>
+        <Icon
+          name={t.icon}
+          size={isMobile ? 22 : 23}
+          strokeWidth={active ? 2.2 : 2}
+          style={{ color: active ? 'var(--sidebar-active-text)' : 'var(--sidebar-inactive)' }}
+        />
+      </div>
+      {!isMobile && (
+        <span style={{ ...s.label, ...(active ? s.labelActive : {}) }}>{t.label}</span>
+      )}
+    </button>
+  );
+}
 
 export default function Sidebar({ tab, onChange, hiddenNavItems = [] }) {
   const { isMobile } = useScreenSize();
-  const visibleTabs = TABS.filter(t => !(TOGGLEABLE_TAB_IDS.includes(t.id) && hiddenNavItems.includes(t.id)));
+  const mainTabs = TABS.filter(t => t.id !== 'edit' && !(TOGGLEABLE_TAB_IDS.includes(t.id) && hiddenNavItems.includes(t.id)));
+  const manageTab = TABS.find(t => t.id === 'edit');
 
   return (
     <nav style={{ ...s.wrap, width: isMobile ? 66 : 84 }} aria-label="Primary">
-      {visibleTabs.map(t => {
-        const active = tab === t.id;
-        return (
-          <button
-            key={t.id}
-            style={{ ...s.item, ...(isMobile ? s.itemMobile : {}) }}
-            onClick={() => onChange(t.id)}
-            aria-label={t.label}
-            aria-current={active ? 'page' : undefined}
-            title={t.label}
-          >
-            <div style={{ ...s.pill, ...(active ? s.pillActive : {}) }}>
-              <Icon
-                name={t.icon}
-                size={isMobile ? 22 : 23}
-                strokeWidth={active ? 2.2 : 2}
-                style={{ color: active ? 'var(--sidebar-active-text)' : 'var(--sidebar-inactive)' }}
-              />
-            </div>
-            {!isMobile && (
-              <span style={{ ...s.label, ...(active ? s.labelActive : {}) }}>{t.label}</span>
-            )}
-          </button>
-        );
-      })}
+      {mainTabs.map(t => (
+        <TabButton key={t.id} t={t} active={tab === t.id} isMobile={isMobile} onClick={() => onChange(t.id)} />
+      ))}
+
+      <div style={s.spacer} />
+
+      <div style={s.divider} />
+      <TabButton t={manageTab} active={tab === manageTab.id} isMobile={isMobile} onClick={() => onChange(manageTab.id)} />
     </nav>
   );
 }
@@ -67,6 +75,10 @@ const s = {
     cursor: 'pointer', borderRadius: 14,
   },
   itemMobile: { padding: '6px 0' },
+  // Pushes Manage down to the bottom of the sidebar regardless of how many
+  // toggleable items are shown/hidden above it.
+  spacer: { flex: 1, minHeight: 8 },
+  divider: { width: 28, height: 1, background: 'rgba(255,255,255,0.16)', marginBottom: 8, flexShrink: 0 },
   pill: {
     display: 'flex', alignItems: 'center', justifyContent: 'center',
     width: 48, height: 38, borderRadius: 14,
