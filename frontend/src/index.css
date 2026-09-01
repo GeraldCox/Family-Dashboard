@@ -94,11 +94,15 @@ body {
 
 .font-heading { font-family: var(--font-heading); }
 
+/* box-shadow is intentionally left out of this transition list — animating
+   it forces a software repaint every frame instead of a cheap GPU-composited
+   layer, which triggers visible tile-corruption artifacts (scattered white
+   dots) on some Android WebView/GPU driver combos. Box-shadow changes still
+   happen, just instantly rather than eased. */
 button {
   font-family: inherit; cursor: pointer; border: none; background: none;
   transition: background-color var(--dur-fast) var(--ease),
               color var(--dur-fast) var(--ease),
-              box-shadow var(--dur-fast) var(--ease),
               transform var(--dur-fast) var(--ease),
               opacity var(--dur-fast) var(--ease);
 }
