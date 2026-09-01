@@ -107,10 +107,13 @@ export default function WeatherBar() {
       {!isMobile && <div style={styles.spacer} />}
 
       <div style={{ ...styles.current, ...(isMobile ? styles.currentMobile : {}) }}>
-        <Icon name={w.icon} size={isMobile ? 34 : 42} style={{ color: w.tint }} />
+        <div style={styles.iconCol}>
+          <Icon name={w.icon} size={isMobile ? 34 : 42} style={{ color: w.tint }} />
+          <div style={styles.condLabel}>{w.label}</div>
+        </div>
         <div style={styles.tempCol}>
           <div style={styles.temp}>{Math.round(cur.temperature_2m)}°F</div>
-          <div style={styles.desc}>{w.label}{weather.location ? ` · ${weather.location}` : ''}</div>
+          {weather.location && <div style={styles.desc}>{weather.location}</div>}
         </div>
         {!isMobile && (
           <div style={styles.meta}>
@@ -152,8 +155,19 @@ const styles = {
   // overflow:hidden, before the icon+temperature would ever be touched.
   current: { display: 'flex', alignItems: 'center', gap: 12, minWidth: 140, flexShrink: 1, overflow: 'hidden' },
   currentMobile: { minWidth: 0, gap: 10 },
-  // Icon (flexShrink:0 built into Icon.jsx) and this column never shrink —
-  // meta below is the first thing to clip away when .current is squeezed.
+  // Icon + condition label as a centered stack. The icon itself never
+  // shrinks (flexShrink:0 built into Icon.jsx), but this column as a whole
+  // can — condLabel truncates under pressure so a long condition name (e.g.
+  // "Thunderstorm") can't shrink the temperature below it in priority.
+  iconCol: {
+    flexShrink: 1, minWidth: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2,
+  },
+  condLabel: {
+    fontSize: 12, color: 'var(--text-2)', textAlign: 'center', lineHeight: 1.2, maxWidth: 72,
+    minWidth: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+  },
+  // Temp + location, left-justified under each other. Never shrinks — the
+  // temperature is the one thing that should always render at full size.
   tempCol: { flexShrink: 0, minWidth: 0 },
   temp: { fontSize: 28, fontWeight: 600, lineHeight: 1, color: 'var(--text-1)', fontFamily: 'var(--font-heading)' },
   desc: {
