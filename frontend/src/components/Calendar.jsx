@@ -361,7 +361,6 @@ export default function Calendar({ view = 'month', filters = {}, refreshToken })
   }
 
   return (
-    <div style={styles.outer}>
     <div style={styles.wrap}>
       <div style={styles.header}>
         <button style={styles.navBtn} onClick={() => handleNav(-1)}>‹</button>
@@ -513,7 +512,6 @@ export default function Calendar({ view = 'month', filters = {}, refreshToken })
       )}
 
     </div>
-    </div>
   );
 }
 
@@ -635,32 +633,17 @@ function WeekGrid({ start, numDays, eventsForDate, today, onChanged }) {
 }
 
 const styles = {
-  // Split from `wrap` on purpose: an element with rounded corners AND
-  // overflow:hidden AND a box-shadow all at once is a known trigger for
-  // GPU tile-corruption artifacts (scattered white specks) on some Android
-  // WebView/GPU driver combos, especially on a large card like this one that
-  // repaints often as the calendar view/date changes. Shadow lives on this
-  // unclipped outer element instead, so the actual clipped/rounded surface
-  // (`wrap`) never carries a shadow itself.
-  outer: { height: '100%', borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-sm)' },
-  wrap: { display: 'flex', flexDirection: 'column', height: '100%', background: 'var(--surface)', borderRadius: 'var(--radius-lg)', border: '0.5px solid var(--border)', overflow: 'hidden' },
+  wrap: { display: 'flex', flexDirection: 'column', height: '100%', background: 'var(--surface)', borderRadius: 'var(--radius-lg)', border: '0.5px solid var(--border)', overflow: 'hidden', boxShadow: 'var(--shadow-sm)' },
   header: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 22px', borderBottom: '0.5px solid var(--border)', flexShrink: 0 },
   monthTitle: { fontSize: 21, fontWeight: 600, color: 'var(--text-1)', fontFamily: 'var(--font-heading)' },
   monthTitleMobile: { fontSize: 16 },
   loading: { fontSize: 16, color: 'var(--text-3)' },
   navBtn: { width: 42, height: 42, borderRadius: 'var(--radius-sm)', background: 'var(--bg)', fontSize: 24, color: 'var(--text-2)', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '0.5px solid var(--border)', cursor: 'pointer' },
-  // CSS Grid (repeat(7,1fr)) swapped for Flexbox here and in weekStyles.row
-  // below — visually identical (7 equal columns), but Flexbox is a much
-  // more mature rendering path than Grid, which has a real history of
-  // Android WebView rasterization bugs (this matched exactly: Day view,
-  // the one view that never used Grid, was the one view not showing the
-  // artifacts). Each cell/dow gets a fixed flex-basis instead of relying
-  // on implicit grid track sizing.
-  dowRow: { display: 'flex', padding: '0 0', flexShrink: 0 },
-  dow: { flex: '0 0 calc(100% / 7)', textAlign: 'center', fontSize: 13, fontWeight: 600, color: 'var(--text-3)', padding: '6px 0', letterSpacing: '0.06em', borderBottom: '0.5px solid var(--border)' },
+  dowRow: { display: 'grid', gridTemplateColumns: 'repeat(7,1fr)', padding: '0 0', flexShrink: 0 },
+  dow: { textAlign: 'center', fontSize: 13, fontWeight: 600, color: 'var(--text-3)', padding: '6px 0', letterSpacing: '0.06em', borderBottom: '0.5px solid var(--border)' },
   gridWrap: { flex: 1, minHeight: 0, overflow: 'hidden' },
-  grid: { display: 'flex', flexWrap: 'wrap', height: '100%' },
-  cell: { flex: '0 0 calc(100% / 7)', padding: '4px 4px 2px', borderRight: '1px solid var(--border)', borderBottom: '1px solid var(--border)', cursor: 'pointer', transition: 'background 0.12s', overflow: 'hidden', position: 'relative' },
+  grid: { display: 'grid', gridTemplateColumns: 'repeat(7,1fr)', height: '100%' },
+  cell: { padding: '4px 4px 2px', borderRight: '1px solid var(--border)', borderBottom: '1px solid var(--border)', cursor: 'pointer', transition: 'background 0.12s', overflow: 'hidden', position: 'relative' },
   otherMonth: { background: 'var(--surface2)', opacity: 0.5 },
   todayCell: { background: 'var(--accent)' },
   selectedCell: { background: 'rgba(60,126,195,0.15)', outline: '2px solid var(--accent-blue)', outlineOffset: -2 },
@@ -690,13 +673,10 @@ const dayStyles = {
   hourLabel: { height: 48, fontSize: 13, color: 'var(--text-3)', textAlign: 'right', paddingRight: 10, paddingTop: 2, fontWeight: 500 },
   eventsCol: { flex: 1, position: 'relative', borderLeft: '1px solid var(--border)' },
   hourLine: { height: 48, borderBottom: '1px solid var(--border)' },
-  // No box-shadow here — same reasoning as styles.outer/wrap above. This
-  // one was a subtle 1px shadow anyway, not worth reintroducing via a
-  // wrapper element for every event block.
   eventBlock: {
     position: 'absolute', left: 8, right: 8, borderRadius: 6, padding: '4px 8px',
     fontSize: 14, fontWeight: 600, overflow: 'hidden', cursor: 'pointer', display: 'flex',
-    flexDirection: 'column', gap: 2,
+    flexDirection: 'column', gap: 2, boxShadow: '0 1px 2px rgba(0,0,0,0.08)',
   },
   eventTitle: { whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' },
   eventTime: { fontSize: 12, opacity: 0.8, fontWeight: 500 },
@@ -704,11 +684,8 @@ const dayStyles = {
 
 const weekStyles = {
   wrap: { flex: 1, display: 'flex', flexDirection: 'column', overflowY: 'auto', gap: 1 },
-  // CSS Grid swapped for Flexbox — see the comment on styles.grid/dowRow
-  // above for why.
-  row: { display: 'flex', flex: 1, minHeight: 160 },
+  row: { display: 'grid', gridTemplateColumns: 'repeat(7,1fr)', flex: 1, minHeight: 160 },
   col: {
-    flex: '1 1 0%', minWidth: 0,
     borderRight: '1px solid var(--border)', borderBottom: '1px solid var(--border)',
     padding: '8px 6px', cursor: 'pointer', overflow: 'hidden', display: 'flex', flexDirection: 'column', gap: 6,
   },

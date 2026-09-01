@@ -71,9 +71,7 @@ const s = {
     display: 'flex', alignItems: 'center', justifyContent: 'center',
     width: 48, height: 38, borderRadius: 14,
     background: 'transparent',
-    // box-shadow excluded from this transition on purpose — see index.css's
-    // `button` rule for why (Android GPU tile-corruption artifacts).
-    transition: 'background var(--dur-mid) var(--ease)',
+    transition: 'background var(--dur-mid) var(--ease), box-shadow var(--dur-mid) var(--ease)',
   },
   pillActive: {
     background: 'var(--sidebar-active-bg)',
