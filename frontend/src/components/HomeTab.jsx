@@ -175,8 +175,15 @@ const s = {
     gap: 9, padding: 7,
   },
   calSide: { overflow: 'hidden', minHeight: 0 },
+  // Visible grip stays the actual 8px grid column width, but the div's own
+  // hit area (where onMouseDown/onTouchStart fire) is widened with negative
+  // margins bleeding into the calendar/panel on each side — much easier to
+  // land a finger on without making the divider itself look any bigger.
   divider: {
+    position: 'relative', zIndex: 2,
     display: 'flex', alignItems: 'center', justifyContent: 'center',
+    marginLeft: -16, marginRight: -16, paddingLeft: 16, paddingRight: 16,
+    boxSizing: 'content-box',
     cursor: 'col-resize', touchAction: 'none',
   },
   dividerGrip: {
