@@ -1462,6 +1462,8 @@ function MealsEditor({ isMobile }) {
           </div>
         </div>
       )}
+
+      <MealieSettingsCard isMobile={isMobile} />
     </div>
   );
 }
@@ -2171,8 +2173,6 @@ function ConnectedAccountsEditor({ isMobile }) {
           <button style={s.addBtn} onClick={() => api.startGoogleAuth()}>+ Connect Google Account</button>
         </div>
       </div>
-
-      <MealieSettingsCard isMobile={isMobile} />
     </>
   );
 }
