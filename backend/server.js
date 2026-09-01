@@ -1616,7 +1616,7 @@ app.get('/api/chores', (req, res) => {
   const data = readJSON(FILES.chores, { people: [] });
   const peopleData = readJSON(FILES.people, { people: [] });
   const metaById = {};
-  (peopleData.people || []).forEach(p => { metaById[p.id] = { name: p.name, photoUrl: personPhotoUrl(p) }; });
+  (peopleData.people || []).forEach(p => { metaById[p.id] = { name: p.name, color: p.color, photoUrl: personPhotoUrl(p) }; });
   const people = (data.people || []).map(p => metaById[p.id] ? { ...p, ...metaById[p.id] } : p);
   res.json({ ...data, people });
 });
