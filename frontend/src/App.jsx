@@ -189,54 +189,70 @@ export default function App() {
           )}
 
           {tab === 'chores' && (
-            <div style={{ ...s.paneLayout, ...(isMobile ? s.paneLayoutMobile : {}) }}>
-              <Chores />
+            <div style={{ ...s.paneOuter, ...(isMobile ? s.paneOuterMobile : {}) }}>
+              <div style={{ ...s.paneLayout, ...(isMobile ? s.paneLayoutMobile : {}) }}>
+                <Chores />
+              </div>
             </div>
           )}
 
           {tab === 'tasks' && (
-            <div style={{ ...s.paneLayout, ...(isMobile ? s.paneLayoutMobile : {}) }}>
-              <Tasks />
+            <div style={{ ...s.paneOuter, ...(isMobile ? s.paneOuterMobile : {}) }}>
+              <div style={{ ...s.paneLayout, ...(isMobile ? s.paneLayoutMobile : {}) }}>
+                <Tasks />
+              </div>
             </div>
           )}
 
           {tab === 'meals' && (
-            <div style={{ ...s.paneLayout, ...(isMobile ? s.paneLayoutMobile : {}) }}>
-              <Meals />
+            <div style={{ ...s.paneOuter, ...(isMobile ? s.paneOuterMobile : {}) }}>
+              <div style={{ ...s.paneLayout, ...(isMobile ? s.paneLayoutMobile : {}) }}>
+                <Meals />
+              </div>
             </div>
           )}
 
           {tab === 'shopping' && (
-            <div style={{ ...s.paneLayout, ...(isMobile ? s.paneLayoutMobile : {}) }}>
-              <ShoppingList />
+            <div style={{ ...s.paneOuter, ...(isMobile ? s.paneOuterMobile : {}) }}>
+              <div style={{ ...s.paneLayout, ...(isMobile ? s.paneLayoutMobile : {}) }}>
+                <ShoppingList />
+              </div>
             </div>
           )}
 
           {tab === 'homeschool' && (
-            <div style={{ ...s.paneLayout, ...(isMobile ? s.paneLayoutMobile : {}) }}>
-              <Homeschool />
+            <div style={{ ...s.paneOuter, ...(isMobile ? s.paneOuterMobile : {}) }}>
+              <div style={{ ...s.paneLayout, ...(isMobile ? s.paneLayoutMobile : {}) }}>
+                <Homeschool />
+              </div>
             </div>
           )}
 
           {tab === 'beach' && (
-            <div style={{ ...s.paneLayout, ...(isMobile ? s.paneLayoutMobile : {}) }}>
-              <Beach />
+            <div style={{ ...s.paneOuter, ...(isMobile ? s.paneOuterMobile : {}) }}>
+              <div style={{ ...s.paneLayout, ...(isMobile ? s.paneLayoutMobile : {}) }}>
+                <Beach />
+              </div>
             </div>
           )}
 
           {tab === 'timer' && (
-            <div style={{ ...s.paneLayout, ...(isMobile ? s.paneLayoutMobile : {}) }}>
-              <Timer />
+            <div style={{ ...s.paneOuter, ...(isMobile ? s.paneOuterMobile : {}) }}>
+              <div style={{ ...s.paneLayout, ...(isMobile ? s.paneLayoutMobile : {}) }}>
+                <Timer />
+              </div>
             </div>
           )}
 
           {tab === 'edit' && (
-            <div style={{ ...s.paneLayout, ...(isMobile ? s.paneLayoutMobile : {}) }}>
-              <EditTab
-                onPreviewScreensaver={previewScreensaver}
-                onScreensaverSettingsSaved={setScreensaverSettings}
-                onGeneralSettingsSaved={setGeneralSettings}
-              />
+            <div style={{ ...s.paneOuter, ...(isMobile ? s.paneOuterMobile : {}) }}>
+              <div style={{ ...s.paneLayout, ...(isMobile ? s.paneLayoutMobile : {}) }}>
+                <EditTab
+                  onPreviewScreensaver={previewScreensaver}
+                  onScreensaverSettingsSaved={setScreensaverSettings}
+                  onGeneralSettingsSaved={setGeneralSettings}
+                />
+              </div>
             </div>
           )}
         </div>
@@ -256,6 +272,17 @@ const s = {
   },
   content: {
     flex: 1, overflow: 'hidden', minHeight: 0,
+  },
+  // Transparent spacer between the page edges and the pane's own card —
+  // matches the outer gap Home (HomeTab's `wrap`) and Calendar
+  // (`calendarTab`) already have. paneLayout's own padding is separate: the
+  // space between the card's border and its content, not the space around
+  // the card itself.
+  paneOuter: {
+    height: '100%', padding: 12, boxSizing: 'border-box',
+  },
+  paneOuterMobile: {
+    padding: 7,
   },
   paneLayout: {
     height: '100%', padding: 12,
