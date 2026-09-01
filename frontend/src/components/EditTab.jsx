@@ -12,14 +12,14 @@ const DEFAULT_COUNTDOWN_COLOR = '#3b82f6';
 
 const SUB_TABS = [
   { id: 'general',     label: 'General' },
+  { id: 'people',      label: 'People' },
+  { id: 'accounts',    label: 'Calendar' },
   { id: 'chores',      label: 'Chores' },
   { id: 'routines',    label: 'Routines' },
   { id: 'meals',       label: 'Meals' },
   { id: 'workouts',    label: 'Workouts' },
-  { id: 'people',      label: 'People' },
   { id: 'countdowns',  label: 'Countdowns' },
   { id: 'reminders',   label: 'Reminders' },
-  { id: 'accounts',    label: 'Connected Accounts' },
   { id: 'screensaver', label: 'Screensaver' },
 ];
 
