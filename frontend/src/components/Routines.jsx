@@ -313,11 +313,17 @@ const s = {
     display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, fontWeight: 700,
     color: 'white', transition: 'background 0.15s, border-color 0.15s',
   },
-  stepCircleDone: { background: 'var(--green)', borderColor: 'var(--green)' },
+  // Both override the full `border` shorthand (not just borderColor) —
+  // React skips reapplying a style key whose value is unchanged between
+  // renders, so a lone borderColor override left uncleared correctly but a
+  // *cleared* one (toggling back to the base state) fell back to `color`
+  // (white) instead of back to stepCircle's gray, since border-color had no
+  // explicit value of its own to restore.
+  stepCircleDone: { background: 'var(--green)', border: '2px solid var(--green)' },
   // --border-md is a faint ring meant for the app's normal background —
   // nearly invisible against the light-pink overdue bubble, so unchecked
   // items there get a bold, clearly-visible red ring instead.
-  stepCircleOverdue: { borderColor: 'var(--red)' },
+  stepCircleOverdue: { border: '2px solid var(--red)' },
   stepName: { fontSize: 15, color: 'var(--text-1)', flex: 1 },
   stepNameDone: { color: 'var(--text-3)', textDecoration: 'line-through' },
   stepNameOverdue: { color: 'var(--red-text)' },

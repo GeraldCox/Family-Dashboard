@@ -526,7 +526,13 @@ const s = {
     display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white',
     transition: 'background 0.15s, border-color 0.15s',
   },
-  compactStepCircleDone: { background: 'var(--green)', borderColor: 'var(--green)' },
+  // Overrides the full `border` shorthand (not just borderColor) so toggling
+  // done on and off always re-sets the same style key — React skips
+  // reapplying a key whose value is unchanged between renders, and since
+  // border-color has no explicit value of its own here, clearing a lone
+  // borderColor override left it falling back to `color` (white) instead of
+  // back to compactStepCircle's gray.
+  compactStepCircleDone: { background: 'var(--green)', border: '2px solid var(--green)' },
   compactItem: {
     fontSize: 14, color: 'var(--text-1)', padding: '3px 0', display: 'flex',
     alignItems: 'center', gap: 6, cursor: 'pointer',
@@ -591,7 +597,10 @@ const s = {
   choreMeta: { display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' },
   choreStars: { fontSize: 10, letterSpacing: '-1px' },
   check: { width: 28, height: 28, borderRadius: 7, border: '2px solid var(--border-md)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, transition: 'all 0.15s' },
-  checkDone: { background: '#22c55e', borderColor: '#22c55e' },
+  // Full `border` shorthand, not just borderColor — see compactStepCircleDone
+  // for why a lone borderColor override doesn't reliably clear back to the
+  // base style's border on toggle.
+  checkDone: { background: '#22c55e', border: '2px solid #22c55e' },
 
   rewardsBlock: { marginTop: 14, paddingTop: 12, borderTop: '0.5px solid var(--border)' },
   rewardsTitle: {
