@@ -94,5 +94,10 @@ const s = {
     lineHeight: 1, textAlign: 'center',
     transition: 'color var(--dur-mid) var(--ease)',
   },
-  labelActive: { color: 'var(--sidebar-active-text)', fontWeight: 700 },
+  // Not var(--sidebar-active-text) — that color is tuned for the icon
+  // sitting on its own white pill, not for text sitting directly on the
+  // sidebar's blue/teal gradient, where (in light mode) it barely
+  // contrasts. --sidebar-active-label is themed separately per mode:
+  // white in light mode, the original cyan in dark mode (unchanged there).
+  labelActive: { color: 'var(--sidebar-active-label)', fontWeight: 700 },
 };

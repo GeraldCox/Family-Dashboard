@@ -9,6 +9,10 @@
   --sidebar-active-bg: #ffffff;
   --sidebar-active-text: #2F9B9D;
   --sidebar-inactive: #E9FEFE;
+  /* The active label sits directly on the sidebar gradient, not on the
+     icon's white pill, so it needs its own contrast tuning rather than
+     reusing --sidebar-active-text (teal-on-blue barely contrasts here). */
+  --sidebar-active-label: #ffffff;
   --border: rgba(18,76,77,0.08);
   --border-md: rgba(18,76,77,0.14);
   --text-1: #124C4D;
@@ -53,6 +57,7 @@
   --sidebar-active-bg: #0f1f2b;
   --sidebar-active-text: #4BECEE;
   --sidebar-inactive: #6b96a3;
+  --sidebar-active-label: #4BECEE;
   --text-1: #e8f4f4;
   --text-2: #8fc4c6;
   --text-3: #4a6b6d;
