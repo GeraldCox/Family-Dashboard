@@ -83,6 +83,14 @@
   color: var(--text-3);
 }
 
+/* The browser's native time/date picker icon is drawn dark by default —
+   invisible against dark theme's dark input backgrounds. Invert it so it
+   renders light instead. */
+[data-theme="dark"] input[type="time"]::-webkit-calendar-picker-indicator,
+[data-theme="dark"] input[type="date"]::-webkit-calendar-picker-indicator {
+  filter: invert(1);
+}
+
 html, body, #root {
   height: 100%;
   overflow: hidden;
