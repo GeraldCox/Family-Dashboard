@@ -45,6 +45,7 @@ export const api = {
   upForGrabsChores: () => get('/chores/up-for-grabs'),
   addUpForGrabsChore: (name, emoji, stars, reset) => post('/chores/up-for-grabs/add', { name, emoji, stars, reset }),
   claimUpForGrabs: (choreId, personId) => post('/chores/up-for-grabs/claim', { choreId, personId }),
+  unclaimUpForGrabs: (choreId) => post('/chores/up-for-grabs/unclaim', { choreId }),
   resetUpForGrabs: () => post('/chores/up-for-grabs/reset'),
   deleteUpForGrabsChore: (choreId) => del(`/chores/up-for-grabs/${choreId}`),
   setUpForGrabsStars: (choreId, stars) => post('/chores/up-for-grabs/set-stars', { choreId, stars }),

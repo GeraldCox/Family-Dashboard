@@ -1714,6 +1714,26 @@ app.post('/api/chores/up-for-grabs/claim', (req, res) => {
   res.json({ ok: true, chore, totalStars: person.totalStars });
 });
 
+app.post('/api/chores/up-for-grabs/unclaim', (req, res) => {
+  const { choreId } = req.body;
+  const data = readJSON(FILES.chores, { people: [], upForGrabs: [] });
+  const chore = (data.upForGrabs || []).find(c => c.id === choreId);
+  if (!chore) return res.status(404).json({ error: 'Chore not found' });
+  if (!chore.done) return res.status(400).json({ error: 'Not claimed' });
+
+  const person = data.people.find(p => p.id === chore.doneBy);
+  if (person) {
+    person.totalStars = Math.max(0, (person.totalStars || 0) - (chore.stars || 1));
+  }
+
+  chore.done = false;
+  chore.doneAt = null;
+  chore.doneBy = null;
+
+  writeJSON(FILES.chores, data);
+  res.json({ ok: true, chore, personId: person ? person.id : null, totalStars: person ? person.totalStars : null });
+});
+
 app.post('/api/chores/up-for-grabs/reset', (req, res) => {
   const data = readJSON(FILES.chores, { people: [], upForGrabs: [] });
   (data.upForGrabs || []).forEach(c => {

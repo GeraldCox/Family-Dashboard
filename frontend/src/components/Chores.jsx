@@ -126,6 +126,17 @@ export default function Chores() {
     setClaimingId(null);
   }
 
+  async function unclaimChore(chore) {
+    const res = await api.unclaimUpForGrabs(chore.id);
+    setData(prev => ({
+      ...prev,
+      people: res.personId
+        ? prev.people.map(p => p.id !== res.personId ? p : { ...p, totalStars: res.totalStars })
+        : prev.people,
+      upForGrabs: prev.upForGrabs.map(c => c.id !== chore.id ? c : res.chore),
+    }));
+  }
+
   async function redeem(person, reward) {
     const res = await api.redeemReward(person.id, reward.id);
     if (!res.ok) return;
@@ -146,8 +157,13 @@ export default function Chores() {
   const personById = Object.fromEntries(data.people.map(p => [p.id, p]));
   const visiblePeople = data.people.filter(p => !p.hidden);
 
+  // One column per visible person plus "Up for Grabs" — grid tracks are all
+  // 1fr, so hiding a person shrinks the column count and lets the remaining
+  // columns stretch to fill the freed-up width, instead of leaving a gap.
+  const columnCount = visiblePeople.length + 1;
+
   return (
-    <div style={{ ...s.wrap, ...(isMobile ? s.wrapMobile : {}) }}>
+    <div style={{ ...s.wrap, ...(isMobile ? s.wrapMobile : { gridTemplateColumns: `repeat(${columnCount}, 1fr)` }) }}>
       {visiblePeople.map(person => {
         const done = person.chores.filter(c => c.done).length;
         const total = person.chores.length;
@@ -265,16 +281,23 @@ export default function Chores() {
         <div style={s.columnBody}>
           <div style={s.choreList}>
             {unclaimed.map(chore => (
-              <div key={chore.id} style={s.grabsCard}>
+              <div
+                key={chore.id}
+                style={s.grabsCard}
+                onClick={() => setClaimingId(chore.id)}
+              >
                 <div style={s.grabsCardHead}>
                   <div style={s.grabsEmoji}>{chore.emoji}</div>
                   <div style={s.grabsInfo}>
                     <div style={s.grabsName}>{chore.name}</div>
                     <div style={s.grabsStars}>{'⭐'.repeat(chore.stars || 1)}</div>
                   </div>
+                  {claimingId !== chore.id && (
+                    <button style={s.claimBtn} onClick={() => setClaimingId(chore.id)}>Claim</button>
+                  )}
                 </div>
-                {claimingId === chore.id ? (
-                  <div style={s.pickerRow}>
+                {claimingId === chore.id && (
+                  <div style={s.pickerRow} onClick={e => e.stopPropagation()}>
                     {visiblePeople.map(person => (
                       <button
                         key={person.id}
@@ -287,8 +310,6 @@ export default function Chores() {
                     ))}
                     <button style={s.pickerCancel} onClick={() => setClaimingId(null)}>✕</button>
                   </div>
-                ) : (
-                  <button style={s.claimBtn} onClick={() => setClaimingId(chore.id)}>Claim</button>
                 )}
               </div>
             ))}
@@ -297,7 +318,12 @@ export default function Chores() {
             {claimed.map(chore => {
               const doneByPerson = personById[chore.doneBy];
               return (
-                <div key={chore.id} style={{ ...s.grabsCard, ...s.grabsCardDone }}>
+                <div
+                  key={chore.id}
+                  style={{ ...s.grabsCard, ...s.grabsCardDone }}
+                  onClick={() => unclaimChore(chore)}
+                  title="Click to unclaim and remove the stars"
+                >
                   <div style={s.grabsCardHead}>
                     <div style={{ ...s.grabsEmoji, opacity: 0.5 }}>{chore.emoji}</div>
                     <div style={s.grabsInfo}>
@@ -400,8 +426,9 @@ const s = {
   grabsCard: {
     background: 'var(--bg)', borderRadius: 12, padding: 10,
     border: '0.5px solid var(--border)', display: 'flex', flexDirection: 'column', gap: 8,
+    cursor: 'pointer',
   },
-  grabsCardDone: { opacity: 0.6 },
+  grabsCardDone: { opacity: 0.6, cursor: 'pointer' },
   grabsCardHead: { display: 'flex', alignItems: 'center', gap: 8 },
   grabsEmoji: { fontSize: 26, width: 36, textAlign: 'center', flexShrink: 0 },
   grabsInfo: { flex: 1, minWidth: 0 },
@@ -409,10 +436,10 @@ const s = {
   grabsStars: { fontSize: 10, letterSpacing: '-1px', marginTop: 2 },
   grabsDoneBy: { fontSize: 12, color: 'var(--text-3)', fontWeight: 500 },
   claimBtn: {
-    alignSelf: 'flex-start', padding: '5px 12px', borderRadius: 8,
+    flexShrink: 0, padding: '5px 12px', borderRadius: 8,
     background: 'var(--blue)', color: 'white', fontSize: 13, fontWeight: 600,
   },
-  pickerRow: { display: 'flex', gap: 5, alignItems: 'center', flexWrap: 'wrap' },
+  pickerRow: { display: 'flex', gap: 5, alignItems: 'center', flexWrap: 'wrap', justifyContent: 'flex-end' },
   pickerAvatarBtn: { background: 'none', border: 'none', padding: 0, cursor: 'pointer', flexShrink: 0 },
   pickerCancel: {
     width: 26, height: 26, borderRadius: '50%', display: 'flex', alignItems: 'center',
