@@ -595,11 +595,52 @@ export default function Calendar({ view = 'month', filters = {}, refreshToken, s
   );
 }
 
+// Assigns each timed event a column + column-count within its overlap
+// cluster so simultaneous events render side by side instead of stacked on
+// top of each other. Purely a layout pass — doesn't touch event colors.
+const DAY_EVENT_OUTER_INSET = 8; // px, matches the old fixed left/right inset
+const DAY_EVENT_COL_GAP = 3; // px gap between side-by-side events
+
+function layoutDayEvents(items) {
+  const sorted = [...items].sort((a, b) => a.top - b.top || a.bottom - b.bottom);
+  const clusters = [];
+  let current = [];
+  let clusterEnd = -Infinity;
+  sorted.forEach(item => {
+    if (current.length === 0 || item.top < clusterEnd) {
+      current.push(item);
+      clusterEnd = Math.max(clusterEnd, item.bottom);
+    } else {
+      clusters.push(current);
+      current = [item];
+      clusterEnd = item.bottom;
+    }
+  });
+  if (current.length) clusters.push(current);
+
+  const positioned = [];
+  clusters.forEach(cluster => {
+    const colEnds = [];
+    cluster.forEach(item => {
+      let col = colEnds.findIndex(end => end <= item.top);
+      if (col === -1) { col = colEnds.length; colEnds.push(item.bottom); }
+      else colEnds[col] = item.bottom;
+      item.col = col;
+    });
+    const colCount = colEnds.length;
+    cluster.forEach(item => positioned.push({ ...item, colCount }));
+  });
+  return positioned;
+}
+
 function DayGrid({ date, events, onChanged }) {
   const [openDate, setOpenDate] = useState(null);
   const hours = [];
   for (let h = DAY_START_HOUR; h <= DAY_END_HOUR; h++) hours.push(h);
-  const totalHours = DAY_END_HOUR - DAY_START_HOUR;
+  // hours.length rows are rendered (6 AM through 10 PM inclusive, each 48px
+  // tall) — the percentage scale must match that row count, not the raw
+  // hour difference, or events land a row above their actual gridline.
+  const totalHours = hours.length;
 
   const allDayEvents = events.filter(ev => ev.allDay);
   const timedEvents = events.filter(ev => !ev.allDay && ev.start && ev.start.includes('T'));
@@ -609,6 +650,14 @@ function DayGrid({ date, events, onChanged }) {
     const hrs = d.getHours() + d.getMinutes() / 60;
     return Math.min(100, Math.max(0, ((hrs - DAY_START_HOUR) / totalHours) * 100));
   }
+
+  const positionedEvents = layoutDayEvents(
+    timedEvents.map(ev => {
+      const top = pctFor(ev.start);
+      const bottom = ev.end ? pctFor(ev.end) : Math.min(100, top + 8);
+      return { ev, top, bottom: Math.max(bottom, top + 0.001) };
+    })
+  );
 
   return (
     <div style={dayStyles.wrap}>
@@ -632,16 +681,17 @@ function DayGrid({ date, events, onChanged }) {
           </div>
           <div style={dayStyles.eventsCol}>
             {hours.map(h => <div key={h} style={dayStyles.hourLine} />)}
-            {timedEvents.map((ev, i) => {
-              const top = pctFor(ev.start);
-              const bottom = ev.end ? pctFor(ev.end) : Math.min(100, top + 8);
+            {positionedEvents.map(({ ev, top, bottom, col, colCount }, i) => {
               const height = Math.max(3, bottom - top);
+              const cellWidth = `((100% - ${DAY_EVENT_OUTER_INSET * 2}px) / ${colCount})`;
               return (
                 <div
                   key={i}
                   style={{
                     ...dayStyles.eventBlock,
                     top: `${top}%`, height: `${height}%`,
+                    left: `calc(${DAY_EVENT_OUTER_INSET}px + ${cellWidth} * ${col} + ${DAY_EVENT_COL_GAP / 2}px)`,
+                    width: `calc(${cellWidth} - ${DAY_EVENT_COL_GAP}px)`,
                     background: eventBackground(ev, '26'), borderLeft: `3px solid ${ev.color}`, color: ev.color,
                   }}
                   onClick={() => setOpenDate(date)}
@@ -761,7 +811,7 @@ const dayStyles = {
   eventsCol: { flex: 1, position: 'relative', borderLeft: '1px solid var(--border)' },
   hourLine: { height: 48, borderBottom: '1px solid var(--border)' },
   eventBlock: {
-    position: 'absolute', left: 8, right: 8, borderRadius: 6, padding: '4px 8px',
+    position: 'absolute', borderRadius: 6, padding: '4px 8px',
     fontSize: 14, fontWeight: 600, overflow: 'hidden', cursor: 'pointer', display: 'flex',
     flexDirection: 'column', gap: 2, boxShadow: '0 1px 2px rgba(0,0,0,0.08)',
   },
