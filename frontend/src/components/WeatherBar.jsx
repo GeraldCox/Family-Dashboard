@@ -4,6 +4,7 @@ import { useScreenSize } from '../hooks/useScreenSize';
 import CountdownWidget from './CountdownWidget';
 import ReminderPopup from './ReminderPopup';
 import Icon from './Icon';
+import { formatLongDateOrdinal } from '../utils/weekDates';
 
 const WMO = {
   0:  { label: 'Clear',         icon: 'sun',             tint: '#f59e0b' },
@@ -127,7 +128,7 @@ export default function WeatherBar() {
       <div style={styles.clockWrap}>
         <div style={{ ...styles.clock, ...(isMobile ? styles.clockMobile : {}) }}>
           {now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-          <div style={styles.date}>{now.toLocaleDateString([], { weekday: 'long', month: 'long', day: 'numeric' })}</div>
+          <div style={styles.date}>{formatLongDateOrdinal(now)}</div>
         </div>
         <ReminderPopup />
       </div>

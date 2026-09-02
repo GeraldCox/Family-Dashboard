@@ -33,6 +33,27 @@ export function formatDateRange(start, end) {
   return `${start.toLocaleDateString([], opts)} - ${end.toLocaleDateString([], opts)}`;
 }
 
+function ordinalSuffix(day) {
+  if (day % 10 === 1 && day % 100 !== 11) return 'st';
+  if (day % 10 === 2 && day % 100 !== 12) return 'nd';
+  if (day % 10 === 3 && day % 100 !== 13) return 'rd';
+  return 'th';
+}
+
+// "Tuesday, September 1st" — same long weekday/month format used across the
+// app's full-date headers, with an ordinal suffix appended to the day since
+// toLocaleDateString has no built-in way to produce one.
+export function formatLongDateOrdinal(date, { weekday = true, year = false } = {}) {
+  const parts = [];
+  if (weekday) parts.push(date.toLocaleDateString([], { weekday: 'long' }));
+  const month = date.toLocaleDateString([], { month: 'long' });
+  const day = date.getDate();
+  let monthDay = `${month} ${day}${ordinalSuffix(day)}`;
+  if (year) monthDay += `, ${date.getFullYear()}`;
+  parts.push(monthDay);
+  return parts.join(', ');
+}
+
 export function isSameDate(a, b) {
   return a.getFullYear() === b.getFullYear() &&
     a.getMonth() === b.getMonth() &&

@@ -3,6 +3,7 @@ import { api } from '../api';
 import { useScreenSize } from '../hooks/useScreenSize';
 import AddEventModal from './AddEventModal';
 import Icon from './Icon';
+import { formatLongDateOrdinal } from '../utils/weekDates';
 
 const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
@@ -37,7 +38,7 @@ function EventDetail({ events, date, onClose, onChanged }) {
         <div style={modal.box} onClick={e => e.stopPropagation()}>
           <div style={modal.header}>
             <div style={modal.dateLabel}>
-              {date.toLocaleDateString([], { weekday: 'long', month: 'long', day: 'numeric' })}
+              {formatLongDateOrdinal(date)}
             </div>
             <button style={modal.close} onClick={onClose} aria-label="Close"><Icon name="x" size={18} /></button>
           </div>
@@ -414,7 +415,7 @@ export default function Calendar({ view = 'month', filters = {}, refreshToken, s
 
   function headerTitle() {
     if (view === 'day') {
-      return anchor.toLocaleDateString([], { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
+      return formatLongDateOrdinal(anchor, { year: true });
     }
     if (view === 'week' || view === '2week') {
       const end = view === 'week' ? addDays(rangeStart, 6) : addDays(rangeStart, 13);

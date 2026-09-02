@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { api } from '../api';
+import { formatLongDateOrdinal } from '../utils/weekDates';
 
 export default function Screensaver({ transitionSeconds = 6, brightness = 100, onDismiss }) {
   const [photos, setPhotos] = useState([]);
@@ -110,7 +111,7 @@ export default function Screensaver({ transitionSeconds = 6, brightness = 100, o
               {now.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
             </div>
             <div style={s.dateCentered}>
-              {now.toLocaleDateString([], { weekday: 'long', month: 'long', day: 'numeric' })}
+              {formatLongDateOrdinal(now)}
             </div>
           </div>
         </>
