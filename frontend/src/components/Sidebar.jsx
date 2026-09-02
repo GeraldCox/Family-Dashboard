@@ -42,10 +42,13 @@ function TabButton({ t, active, isMobile, onClick }) {
   );
 }
 
-export default function Sidebar({ tab, onChange, hiddenNavItems = [] }) {
+export default function Sidebar({ tab, onChange, hiddenNavItems = [], navLabels = {} }) {
   const { isMobile } = useScreenSize();
-  const mainTabs = TABS.filter(t => t.id !== 'edit' && !(TOGGLEABLE_TAB_IDS.includes(t.id) && hiddenNavItems.includes(t.id)));
-  const manageTab = TABS.find(t => t.id === 'edit');
+  const withLabel = t => navLabels[t.id] ? { ...t, label: navLabels[t.id] } : t;
+  const mainTabs = TABS
+    .filter(t => t.id !== 'edit' && !(TOGGLEABLE_TAB_IDS.includes(t.id) && hiddenNavItems.includes(t.id)))
+    .map(withLabel);
+  const manageTab = withLabel(TABS.find(t => t.id === 'edit'));
 
   return (
     <nav style={{ ...s.wrap, width: isMobile ? 66 : 84 }} aria-label="Primary">

@@ -2,10 +2,14 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import Calendar from './Calendar';
 import Routines from './Routines';
 import Tasks from './Tasks';
+import Chores from './Chores';
 import { useScreenSize } from '../hooks/useScreenSize';
 
-const PANELS = ['routines', 'tasks'];
-const TITLES = { routines: 'Routines', tasks: 'Tasks' };
+const PANELS = ['chores', 'routines', 'tasks'];
+const TITLES = { routines: 'Routines', tasks: 'Tasks', chores: 'Chores' };
+// Routines has no standalone sidebar page to jump to, so only these two
+// panel titles act as links.
+const PANEL_NAV_TARGET = { chores: 'chores', tasks: 'tasks' };
 const SWIPE_THRESHOLD = 40;
 
 const PANEL_WIDTH_KEY = 'homeTab.panelWidth';
@@ -19,7 +23,7 @@ function loadPanelWidth() {
   return DEFAULT_PANEL_WIDTH;
 }
 
-export default function HomeTab({ view, filters }) {
+export default function HomeTab({ view, filters, onNavigate, hiddenPanels = [], navLabels = {} }) {
   const [panelIndex, setPanelIndex] = useState(0);
   const [panelWidth, setPanelWidth] = useState(loadPanelWidth);
   const touchStartX = useRef(null);
@@ -27,8 +31,19 @@ export default function HomeTab({ view, filters }) {
   const isDraggingRef = useRef(false);
   const { isMobile } = useScreenSize();
 
+  const visiblePanels = PANELS.filter(p => !hiddenPanels.includes(p));
+  // Clamped rather than stored — if a panel toward the end gets hidden while
+  // it's the active one, this just falls back to the new last panel instead
+  // of pointing past the end of the (now shorter) list.
+  const activeIndex = Math.min(panelIndex, Math.max(0, visiblePanels.length - 1));
+  const activePanel = visiblePanels[activeIndex];
+  // Chores/Tasks have a sidebar entry that can be relabeled from Manage →
+  // General; Routines has no sidebar entry of its own, so it always shows
+  // the default title.
+  const activeTitle = navLabels[activePanel] || TITLES[activePanel];
+
   function go(dir) {
-    setPanelIndex(i => Math.min(PANELS.length - 1, Math.max(0, i + dir)));
+    setPanelIndex(i => Math.min(visiblePanels.length - 1, Math.max(0, i + dir)));
   }
 
   function handleTouchStart(e) {
@@ -133,9 +148,20 @@ export default function HomeTab({ view, filters }) {
 
         <div style={s.panelSide}>
           <div style={s.panelHeader}>
-            <button style={s.arrowBtn} onClick={() => go(-1)} disabled={panelIndex === 0}>‹</button>
-            <div style={s.panelTitle}>{TITLES[PANELS[panelIndex]]}</div>
-            <button style={s.arrowBtn} onClick={() => go(1)} disabled={panelIndex === PANELS.length - 1}>›</button>
+            <button style={s.arrowBtn} onClick={() => go(-1)} disabled={activeIndex === 0}>‹</button>
+            {(() => {
+              const navTarget = PANEL_NAV_TARGET[activePanel];
+              return (
+                <div
+                  style={{ ...s.panelTitle, ...(navTarget ? s.panelTitleLink : {}) }}
+                  onClick={navTarget ? () => onNavigate?.(navTarget) : undefined}
+                  title={navTarget ? `Open ${activeTitle}` : undefined}
+                >
+                  {activeTitle}
+                </div>
+              );
+            })()}
+            <button style={s.arrowBtn} onClick={() => go(1)} disabled={activeIndex === visiblePanels.length - 1}>›</button>
           </div>
 
           <div
@@ -143,15 +169,16 @@ export default function HomeTab({ view, filters }) {
             onTouchStart={handleTouchStart}
             onTouchEnd={handleTouchEnd}
           >
-            {PANELS[panelIndex] === 'routines' && <Routines />}
-            {PANELS[panelIndex] === 'tasks' && <Tasks compact />}
+            {activePanel === 'routines' && <Routines />}
+            {activePanel === 'tasks' && <Tasks compact />}
+            {activePanel === 'chores' && <Chores compact />}
           </div>
 
           <div style={s.dots}>
-            {PANELS.map((p, i) => (
+            {visiblePanels.map((p, i) => (
               <span
                 key={p}
-                style={{ ...s.dot, ...(i === panelIndex ? s.dotActive : {}) }}
+                style={{ ...s.dot, ...(i === activeIndex ? s.dotActive : {}) }}
                 onClick={() => setPanelIndex(i)}
               />
             ))}
@@ -203,6 +230,7 @@ const s = {
     padding: '12px 14px', borderBottom: '0.5px solid var(--border)', flexShrink: 0,
   },
   panelTitle: { fontSize: 15, fontWeight: 700, color: 'var(--text-1)', fontFamily: 'var(--font-heading)' },
+  panelTitleLink: { cursor: 'pointer' },
   arrowBtn: {
     width: 32, height: 32, borderRadius: 8, background: 'var(--bg)',
     border: '0.5px solid var(--border)', color: 'var(--text-2)', fontSize: 18,

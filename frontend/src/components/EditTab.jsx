@@ -23,9 +23,21 @@ const SUB_TABS = [
   { id: 'screensaver', label: 'Screensaver' },
 ];
 
+const VALID_SUB_TAB_IDS = SUB_TABS.map(t => t.id);
+
+// Reopens whatever Manage sub-tab was showing before a refresh.
+function getStoredSubTab() {
+  const stored = localStorage.getItem('manageSubTab');
+  return VALID_SUB_TAB_IDS.includes(stored) ? stored : 'general';
+}
+
 export default function EditTab({ onPreviewScreensaver, onScreensaverSettingsSaved, onGeneralSettingsSaved }) {
-  const [subTab, setSubTab] = useState('general');
+  const [subTab, setSubTab] = useState(getStoredSubTab);
   const { isMobile } = useScreenSize();
+
+  useEffect(() => {
+    localStorage.setItem('manageSubTab', subTab);
+  }, [subTab]);
 
   return (
     <div style={s.wrap}>
@@ -134,6 +146,9 @@ const THEME_OPTIONS = [
 function GeneralEditor({ isMobile, onGeneralSettingsSaved }) {
   const [hidden, setHidden] = useState(null);
   const [savingId, setSavingId] = useState(null);
+  const [hiddenHomePanels, setHiddenHomePanels] = useState(null);
+  const [savingHomePanel, setSavingHomePanel] = useState(false);
+  const [navLabels, setNavLabels] = useState(null);
   const [themeOverride, setThemeOverride] = useState(() => localStorage.getItem('themeOverride') || 'auto');
   const [location, setLocation] = useState(null);
   const [locationQuery, setLocationQuery] = useState('');
@@ -149,6 +164,8 @@ function GeneralEditor({ isMobile, onGeneralSettingsSaved }) {
   useEffect(() => {
     api.getGeneralSettings().then(res => {
       setHidden(res.hiddenNavItems || []);
+      setHiddenHomePanels(res.hiddenHomePanels || []);
+      setNavLabels(res.navLabels || {});
       setCountdownHideAfterDays(res.countdownHideAfterDays ?? 1);
     }).catch(console.error);
   }, []);
@@ -218,6 +235,31 @@ function GeneralEditor({ isMobile, onGeneralSettingsSaved }) {
     }
   }
 
+  async function toggleHomePanel(id) {
+    const next = hiddenHomePanels.includes(id) ? hiddenHomePanels.filter(x => x !== id) : [...hiddenHomePanels, id];
+    setHiddenHomePanels(next);
+    setSavingHomePanel(true);
+    try {
+      const res = await api.saveGeneralSettings({ hiddenHomePanels: next });
+      onGeneralSettingsSaved?.(res.settings);
+    } finally {
+      setSavingHomePanel(false);
+    }
+  }
+
+  function setNavLabelDraft(id, value) {
+    setNavLabels(prev => ({ ...prev, [id]: value }));
+  }
+
+  async function saveNavLabel(id, value) {
+    const trimmed = value.trim();
+    const next = { ...navLabels };
+    if (trimmed) next[id] = trimmed; else delete next[id];
+    setNavLabels(next);
+    const res = await api.saveGeneralSettings({ navLabels: next });
+    onGeneralSettingsSaved?.(res.settings);
+  }
+
   function selectThemeOverride(value) {
     localStorage.setItem('themeOverride', value);
     window.dispatchEvent(new Event('themeOverridechange'));
@@ -236,7 +278,7 @@ function GeneralEditor({ isMobile, onGeneralSettingsSaved }) {
     }
   }
 
-  if (hidden === null) return <div style={s.empty}>Loading settings…</div>;
+  if (hidden === null || hiddenHomePanels === null || navLabels === null) return <div style={s.empty}>Loading settings…</div>;
 
   return (
     <>
@@ -262,6 +304,50 @@ function GeneralEditor({ isMobile, onGeneralSettingsSaved }) {
               </label>
             );
           })}
+        </div>
+      </div>
+
+      <div style={s.card}>
+        <div style={{ ...s.personName, display: 'flex', alignItems: 'center', gap: 8 }}>
+          <Icon name="pencil" size={18} /> Rename Navigation Labels
+        </div>
+        <div style={{ ...s.emptySmall, marginBottom: 10 }}>Customize the text shown under each sidebar icon. Leave blank to use the default.</div>
+        <div style={s.list}>
+          {NAV_TABS.map(t => (
+            <div key={t.id} style={s.row}>
+              <Icon name={t.icon} size={18} style={{ color: 'var(--text-2)' }} />
+              <span style={s.navLabelDefault}>{t.label}</span>
+              <input
+                style={s.nameInput}
+                type="text"
+                placeholder={t.label}
+                value={navLabels[t.id] || ''}
+                onChange={e => setNavLabelDraft(t.id, e.target.value)}
+                onBlur={e => saveNavLabel(t.id, e.target.value)}
+                maxLength={20}
+              />
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div style={s.card}>
+        <div style={{ ...s.personName, display: 'flex', alignItems: 'center', gap: 8 }}>
+          <Icon name="timer" size={18} /> Home Panel
+        </div>
+        <div style={{ ...s.emptySmall, marginBottom: 10 }}>Choose which panels show in the Home page's side card.</div>
+        <div style={s.list}>
+          <label style={{ ...s.row, cursor: 'pointer', opacity: savingHomePanel ? 0.6 : 1 }}>
+            <Icon name="timer" size={18} style={{ color: 'var(--text-2)' }} />
+            <span style={s.rowName}>Routines</span>
+            <input
+              type="checkbox"
+              checked={!hiddenHomePanels.includes('routines')}
+              onChange={() => toggleHomePanel('routines')}
+              disabled={savingHomePanel}
+              style={s.toggleCheckbox}
+            />
+          </label>
         </div>
       </div>
 
@@ -372,8 +458,61 @@ function ChoresEditor({ isMobile }) {
   const [grabsDraft, setGrabsDraft] = useState({ name: '', emoji: '', stars: 1, reset: 'weekly' });
   const [rewardItemDrafts, setRewardItemDrafts] = useState({}); // personId -> { name, emoji, starsRequired }
   const [adjustDrafts, setAdjustDrafts] = useState({}); // personId -> amount string
+  // Reordering: listId is a personId, or the string 'grabs' for the Up for
+  // Grabs list — a drag can only reorder within the list it started in.
+  const [dragChore, setDragChore] = useState(null); // { listId, index }
+  const [dragOverIndex, setDragOverIndex] = useState(null);
 
   useEffect(() => { api.chores().then(setData).catch(console.error); }, []);
+
+  function resetChoreDrag() {
+    setDragChore(null);
+    setDragOverIndex(null);
+  }
+
+  function handleChoreDragStart(e, listId, index) {
+    setDragChore({ listId, index });
+    e.dataTransfer.effectAllowed = 'move';
+    try { e.dataTransfer.setData('text/plain', String(index)); } catch { /* ignore */ }
+  }
+
+  function handleChoreDragOver(e, listId, index) {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    if (!dragChore || dragChore.listId !== listId || dragChore.index === index) return;
+    if (dragOverIndex !== index) setDragOverIndex(index);
+  }
+
+  function handleChoreDrop(e, listId, index) {
+    e.preventDefault();
+    if (!dragChore || dragChore.listId !== listId || dragChore.index === index) { resetChoreDrag(); return; }
+    if (listId === 'grabs') reorderGrabsChores(dragChore.index, index);
+    else reorderPersonChores(listId, dragChore.index, index);
+    resetChoreDrag();
+  }
+
+  async function reorderPersonChores(personId, fromIndex, toIndex) {
+    const person = data.people.find(p => p.id === personId);
+    if (!person) return;
+    const arr = [...person.chores];
+    const [moved] = arr.splice(fromIndex, 1);
+    const insertIndex = toIndex > fromIndex ? toIndex - 1 : toIndex;
+    arr.splice(insertIndex, 0, moved);
+    setData(prev => ({
+      ...prev,
+      people: prev.people.map(p => p.id !== personId ? p : { ...p, chores: arr })
+    }));
+    await api.reorderChores(personId, arr.map(c => c.id));
+  }
+
+  async function reorderGrabsChores(fromIndex, toIndex) {
+    const arr = [...(data.upForGrabs || [])];
+    const [moved] = arr.splice(fromIndex, 1);
+    const insertIndex = toIndex > fromIndex ? toIndex - 1 : toIndex;
+    arr.splice(insertIndex, 0, moved);
+    setData(prev => ({ ...prev, upForGrabs: arr }));
+    await api.reorderUpForGrabsChores(arr.map(c => c.id));
+  }
 
   function getDraft(personId) {
     return drafts[personId] || { name: '', emoji: '', reset: 'weekly' };
@@ -428,6 +567,17 @@ function ChoresEditor({ isMobile }) {
     }));
   }
 
+  function updateGrabsChoreField(choreId, patch) {
+    setData(prev => ({
+      ...prev,
+      upForGrabs: (prev.upForGrabs || []).map(c => c.id !== choreId ? c : { ...c, ...patch })
+    }));
+  }
+
+  async function saveGrabsChoreEdit(choreId, patch) {
+    await api.editUpForGrabsChore(choreId, patch);
+  }
+
   async function addRewardItem(personId) {
     const draft = getRewardItemDraft(personId);
     if (!draft.name.trim()) return;
@@ -466,6 +616,20 @@ function ChoresEditor({ isMobile }) {
     }));
   }
 
+  function updateChoreField(personId, choreId, patch) {
+    setData(prev => ({
+      ...prev,
+      people: prev.people.map(p => p.id !== personId ? p : {
+        ...p,
+        chores: p.chores.map(c => c.id !== choreId ? c : { ...c, ...patch })
+      })
+    }));
+  }
+
+  async function saveChoreEdit(personId, choreId, patch) {
+    await api.editChore(personId, choreId, patch);
+  }
+
   async function setStars(personId, choreId, stars) {
     await api.setChoreStars(personId, choreId, stars);
     setData(prev => ({
@@ -494,28 +658,70 @@ function ChoresEditor({ isMobile }) {
       <div style={s.card}>
         <div style={s.personName}>🙌 Up for Grabs</div>
         <div style={s.list}>
-          {upForGrabs.map(chore => {
+          {upForGrabs.map((chore, i) => {
             const stars = chore.stars || 1;
             return (
-              <div key={chore.id} style={s.row}>
-                <span style={s.rowEmoji}>{chore.emoji}</span>
-                <span style={s.rowName}>{chore.name}</span>
-                <span style={s.rowReset}>{chore.reset}</span>
-                <div style={s.starPicker}>
-                  {[1, 2, 3, 4, 5].map(n => (
-                    <span
-                      key={n}
-                      style={{ ...s.starPickerIcon, opacity: n <= stars ? 1 : 0.25 }}
-                      onClick={() => setGrabsStars(chore.id, n)}
-                      title={`${n} star${n === 1 ? '' : 's'}`}
-                    >
-                      ⭐
-                    </span>
-                  ))}
+              <div
+                key={chore.id}
+                style={s.choreRowWrap}
+                onDragOver={e => handleChoreDragOver(e, 'grabs', i)}
+                onDrop={e => handleChoreDrop(e, 'grabs', i)}
+              >
+                {dragOverIndex === i && dragChore?.listId === 'grabs' && dragChore.index !== i && (
+                  <div style={s.choreDragPlaceholder} />
+                )}
+                <div style={{ ...s.row, opacity: dragChore?.listId === 'grabs' && dragChore.index === i ? 0.4 : 1 }}>
+                  <div
+                    draggable
+                    onDragStart={e => handleChoreDragStart(e, 'grabs', i)}
+                    onDragEnd={resetChoreDrag}
+                    style={s.choreDragHandle}
+                    title="Drag to reorder"
+                  >
+                    ⠿
+                  </div>
+                  <input
+                    style={s.rowEmojiInput}
+                    type="text"
+                    value={chore.emoji}
+                    onChange={e => updateGrabsChoreField(chore.id, { emoji: e.target.value })}
+                    onBlur={e => saveGrabsChoreEdit(chore.id, { emoji: e.target.value })}
+                    title="Emoji"
+                  />
+                  <input
+                    style={s.rowNameInput}
+                    type="text"
+                    value={chore.name}
+                    onChange={e => updateGrabsChoreField(chore.id, { name: e.target.value })}
+                    onBlur={e => saveGrabsChoreEdit(chore.id, { name: e.target.value })}
+                    title="Chore name"
+                  />
+                  <select
+                    style={s.rowResetSelect}
+                    value={chore.reset}
+                    onChange={e => {
+                      updateGrabsChoreField(chore.id, { reset: e.target.value });
+                      saveGrabsChoreEdit(chore.id, { reset: e.target.value });
+                    }}
+                  >
+                    {RESET_OPTIONS.map(r => <option key={r} value={r}>{r}</option>)}
+                  </select>
+                  <div style={s.starPicker}>
+                    {[1, 2, 3, 4, 5].map(n => (
+                      <span
+                        key={n}
+                        style={{ ...s.starPickerIcon, opacity: n <= stars ? 1 : 0.25 }}
+                        onClick={() => setGrabsStars(chore.id, n)}
+                        title={`${n} star${n === 1 ? '' : 's'}`}
+                      >
+                        ⭐
+                      </span>
+                    ))}
+                  </div>
+                  <button style={s.trashBtn} onClick={() => deleteGrabsChore(chore.id)} title="Delete chore">
+                    🗑️
+                  </button>
                 </div>
-                <button style={s.trashBtn} onClick={() => deleteGrabsChore(chore.id)} title="Delete chore">
-                  🗑️
-                </button>
               </div>
             );
           })}
@@ -590,28 +796,70 @@ function ChoresEditor({ isMobile }) {
             </div>
 
             <div style={s.list}>
-              {person.chores.map(chore => {
+              {person.chores.map((chore, i) => {
                 const stars = chore.stars || 1;
                 return (
-                  <div key={chore.id} style={s.row}>
-                    <span style={s.rowEmoji}>{chore.emoji}</span>
-                    <span style={s.rowName}>{chore.name}</span>
-                    <span style={s.rowReset}>{chore.reset}</span>
-                    <div style={s.starPicker}>
-                      {[1, 2, 3, 4, 5].map(n => (
-                        <span
-                          key={n}
-                          style={{ ...s.starPickerIcon, opacity: n <= stars ? 1 : 0.25 }}
-                          onClick={() => setStars(person.id, chore.id, n)}
-                          title={`${n} star${n === 1 ? '' : 's'}`}
-                        >
-                          ⭐
-                        </span>
-                      ))}
+                  <div
+                    key={chore.id}
+                    style={s.choreRowWrap}
+                    onDragOver={e => handleChoreDragOver(e, person.id, i)}
+                    onDrop={e => handleChoreDrop(e, person.id, i)}
+                  >
+                    {dragOverIndex === i && dragChore?.listId === person.id && dragChore.index !== i && (
+                      <div style={s.choreDragPlaceholder} />
+                    )}
+                    <div style={{ ...s.row, opacity: dragChore?.listId === person.id && dragChore.index === i ? 0.4 : 1 }}>
+                      <div
+                        draggable
+                        onDragStart={e => handleChoreDragStart(e, person.id, i)}
+                        onDragEnd={resetChoreDrag}
+                        style={s.choreDragHandle}
+                        title="Drag to reorder"
+                      >
+                        ⠿
+                      </div>
+                      <input
+                        style={s.rowEmojiInput}
+                        type="text"
+                        value={chore.emoji}
+                        onChange={e => updateChoreField(person.id, chore.id, { emoji: e.target.value })}
+                        onBlur={e => saveChoreEdit(person.id, chore.id, { emoji: e.target.value })}
+                        title="Emoji"
+                      />
+                      <input
+                        style={s.rowNameInput}
+                        type="text"
+                        value={chore.name}
+                        onChange={e => updateChoreField(person.id, chore.id, { name: e.target.value })}
+                        onBlur={e => saveChoreEdit(person.id, chore.id, { name: e.target.value })}
+                        title="Chore name"
+                      />
+                      <select
+                        style={s.rowResetSelect}
+                        value={chore.reset}
+                        onChange={e => {
+                          updateChoreField(person.id, chore.id, { reset: e.target.value });
+                          saveChoreEdit(person.id, chore.id, { reset: e.target.value });
+                        }}
+                      >
+                        {RESET_OPTIONS.map(r => <option key={r} value={r}>{r}</option>)}
+                      </select>
+                      <div style={s.starPicker}>
+                        {[1, 2, 3, 4, 5].map(n => (
+                          <span
+                            key={n}
+                            style={{ ...s.starPickerIcon, opacity: n <= stars ? 1 : 0.25 }}
+                            onClick={() => setStars(person.id, chore.id, n)}
+                            title={`${n} star${n === 1 ? '' : 's'}`}
+                          >
+                            ⭐
+                          </span>
+                        ))}
+                      </div>
+                      <button style={s.trashBtn} onClick={() => deleteChore(person.id, chore.id)} title="Delete chore">
+                        🗑️
+                      </button>
                     </div>
-                    <button style={s.trashBtn} onClick={() => deleteChore(person.id, chore.id)} title="Delete chore">
-                      🗑️
-                    </button>
                   </div>
                 );
               })}
@@ -2640,7 +2888,12 @@ const s = {
   empty: { padding: 20, color: 'var(--text-3)' },
   emptySmall: { fontSize: 14, color: 'var(--text-3)', fontStyle: 'italic', padding: '4px 0' },
 
-  grid: { display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 16 },
+  // minmax(0, 1fr) rather than a bare 1fr — a bare 1fr track still won't
+  // shrink narrower than its content's intrinsic min-width, so a card whose
+  // rows (drag handle + inputs + select + stars + trash) add up to more
+  // than half the available width pushes the whole grid wider than the
+  // viewport instead of the row's own text input shrinking to fit.
+  grid: { display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 16 },
   gridMobile: { gridTemplateColumns: '1fr' },
   card: {
     background: 'var(--surface)', borderRadius: 16, padding: 16,
@@ -2669,11 +2922,40 @@ const s = {
     padding: '9px 11px', borderRadius: 10,
     background: 'var(--bg)', border: '0.5px solid var(--border)',
   },
+  choreRowWrap: { display: 'flex', flexDirection: 'column' },
+  choreDragHandle: {
+    width: 14, flexShrink: 0, textAlign: 'center',
+    fontSize: 16, lineHeight: 1, color: 'var(--text-3)', cursor: 'grab',
+    userSelect: 'none',
+  },
+  choreDragPlaceholder: {
+    height: 3, borderRadius: 2, background: 'var(--blue)',
+    margin: '0 0 6px 0', opacity: 0.6,
+  },
   rowEmoji: { fontSize: 21, width: 28, textAlign: 'center', flexShrink: 0 },
   rowName: { flex: 1, fontSize: 15, fontWeight: 600, color: 'var(--text-1)' },
+  // Fixed-width sibling to rowName for the nav-relabeling row, where the
+  // default label just labels the row and the input (flex:1) does the work.
+  navLabelDefault: { width: 100, flexShrink: 0, fontSize: 14, fontWeight: 600, color: 'var(--text-1)' },
   rowReset: {
     fontSize: 12, color: 'var(--text-3)', textTransform: 'uppercase',
     fontWeight: 600, letterSpacing: '0.04em',
+  },
+  // Editable counterparts to rowEmoji/rowName/rowReset — same sizing so
+  // swapping a row from display to edit mode doesn't reflow, with a subtle
+  // border/background so it reads as editable without shouting over the row.
+  rowEmojiInput: {
+    fontSize: 21, width: 30, textAlign: 'center', flexShrink: 0,
+    background: 'var(--surface)', border: '0.5px solid var(--border-md)', borderRadius: 6, padding: '2px 0',
+  },
+  rowNameInput: {
+    flex: 1, fontSize: 15, fontWeight: 600, color: 'var(--text-1)', minWidth: 0,
+    background: 'var(--surface)', border: '0.5px solid var(--border-md)', borderRadius: 6, padding: '2px 6px',
+  },
+  rowResetSelect: {
+    fontSize: 12, color: 'var(--text-3)', textTransform: 'uppercase',
+    fontWeight: 600, letterSpacing: '0.04em', flexShrink: 0, cursor: 'pointer',
+    background: 'var(--surface)', border: '0.5px solid var(--border-md)', borderRadius: 6, padding: '2px 4px',
   },
   starPicker: { display: 'flex', gap: 1, flexShrink: 0 },
   starPickerIcon: { fontSize: 15, cursor: 'pointer', transition: 'opacity 0.15s' },

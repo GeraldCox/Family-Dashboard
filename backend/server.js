@@ -261,12 +261,31 @@ const DEFAULT_PHOTO_SETTINGS = { inactivityMinutes: 5, transitionSeconds: 6, bri
 // Sidebar nav items the household can hide from the "General" editor tab.
 // Anything not in this list (home, calendar, chores, etc.) always shows.
 const TOGGLEABLE_NAV_ITEMS = ['chores', 'tasks', 'meals', 'shopping', 'homeschool', 'beach', 'timer'];
+// Every sidebar nav item id, including the always-shown ones — used to
+// validate custom label overrides, which apply regardless of hideability.
+const ALL_NAV_ITEMS = ['home', 'calendar', 'chores', 'tasks', 'meals', 'shopping', 'homeschool', 'beach', 'timer', 'edit'];
+// The Home page's swipeable side panel (Chores/Routines/Tasks) — which of
+// those panels the household can hide entirely from that carousel.
+const HOME_PANEL_IDS = ['chores', 'routines', 'tasks'];
 // Time of day by which each routine period's steps should be done, used to
 // flag an incomplete routine as overdue and to auto-collapse a completed one.
 const DEFAULT_ROUTINE_TIME_CUTOFFS = { morning: '11:00', afternoon: '17:00', evening: '21:00', bedtime: '23:59' };
 const VALID_CALENDAR_VIEWS = ['day', 'week', '2week', 'month'];
-const DEFAULT_GENERAL_SETTINGS = { hiddenNavItems: [], countdownHideAfterDays: 1, routineTimeCutoffs: DEFAULT_ROUTINE_TIME_CUTOFFS, homeCalendarView: 'month' };
+const DEFAULT_GENERAL_SETTINGS = { hiddenNavItems: [], hiddenHomePanels: [], navLabels: {}, countdownHideAfterDays: 1, routineTimeCutoffs: DEFAULT_ROUTINE_TIME_CUTOFFS, homeCalendarView: 'month' };
 const HHMM_RE = /^([01]\d|2[0-3]):[0-5]\d$/;
+
+// Keeps only entries whose key is a real nav item and whose value is a
+// non-empty string — an empty/missing entry means "use that item's default
+// label" rather than storing a blank override.
+function sanitizeNavLabels(input, fallback) {
+  if (!input || typeof input !== 'object' || Array.isArray(input)) return fallback || {};
+  const out = {};
+  for (const id of ALL_NAV_ITEMS) {
+    const v = input[id];
+    if (typeof v === 'string' && v.trim()) out[id] = v.trim().slice(0, 20);
+  }
+  return out;
+}
 
 function parseRoutineTimeCutoffs(input, fallback) {
   if (!input || typeof input !== 'object') return fallback;
@@ -1668,6 +1687,33 @@ app.post('/api/chores/add', (req, res) => {
   res.json({ ok: true, chore: newChore });
 });
 
+app.post('/api/chores/edit', (req, res) => {
+  const { personId, choreId, name, emoji, reset } = req.body;
+  const data = readJSON(FILES.chores, { people: [] });
+  const person = data.people.find(p => p.id === personId);
+  if (!person) return res.status(404).json({ error: 'Person not found' });
+  const chore = person.chores.find(c => c.id === choreId);
+  if (!chore) return res.status(404).json({ error: 'Chore not found' });
+  if (name !== undefined) chore.name = name;
+  if (emoji !== undefined) chore.emoji = emoji;
+  if (reset !== undefined) chore.reset = reset;
+  writeJSON(FILES.chores, data);
+  res.json({ ok: true, chore });
+});
+
+app.post('/api/chores/reorder', (req, res) => {
+  const { personId, choreIds } = req.body;
+  const data = readJSON(FILES.chores, { people: [] });
+  const person = data.people.find(p => p.id === personId);
+  if (!person) return res.status(404).json({ error: 'Person not found' });
+  const byId = Object.fromEntries(person.chores.map(c => [c.id, c]));
+  const reordered = choreIds.map(id => byId[id]).filter(Boolean);
+  const missing = person.chores.filter(c => !choreIds.includes(c.id));
+  person.chores = [...reordered, ...missing];
+  writeJSON(FILES.chores, data);
+  res.json({ ok: true, chores: person.chores });
+});
+
 // Up for grabs chores (registered before the generic :personId/:choreId route below,
 // since Express matches routes in registration order and both shapes have 2 segments)
 app.get('/api/chores/up-for-grabs', (req, res) => {
@@ -1692,6 +1738,30 @@ app.post('/api/chores/up-for-grabs/add', (req, res) => {
   data.upForGrabs.push(chore);
   writeJSON(FILES.chores, data);
   res.json({ ok: true, chore });
+});
+
+app.post('/api/chores/up-for-grabs/edit', (req, res) => {
+  const { choreId, name, emoji, reset } = req.body;
+  const data = readJSON(FILES.chores, { people: [], upForGrabs: [] });
+  const chore = (data.upForGrabs || []).find(c => c.id === choreId);
+  if (!chore) return res.status(404).json({ error: 'Chore not found' });
+  if (name !== undefined) chore.name = name;
+  if (emoji !== undefined) chore.emoji = emoji;
+  if (reset !== undefined) chore.reset = reset;
+  writeJSON(FILES.chores, data);
+  res.json({ ok: true, chore });
+});
+
+app.post('/api/chores/up-for-grabs/reorder', (req, res) => {
+  const { choreIds } = req.body;
+  const data = readJSON(FILES.chores, { people: [], upForGrabs: [] });
+  const list = data.upForGrabs || [];
+  const byId = Object.fromEntries(list.map(c => [c.id, c]));
+  const reordered = choreIds.map(id => byId[id]).filter(Boolean);
+  const missing = list.filter(c => !choreIds.includes(c.id));
+  data.upForGrabs = [...reordered, ...missing];
+  writeJSON(FILES.chores, data);
+  res.json({ ok: true, upForGrabs: data.upForGrabs });
 });
 
 app.post('/api/chores/up-for-grabs/claim', (req, res) => {
@@ -2706,12 +2776,18 @@ app.get('/api/settings/general', (req, res) => {
 
 app.post('/api/settings/general', (req, res) => {
   const current = readJSON(FILES.generalSettings, DEFAULT_GENERAL_SETTINGS);
-  const { hiddenNavItems, countdownHideAfterDays, routineTimeCutoffs, homeCalendarView } = req.body;
+  const { hiddenNavItems, hiddenHomePanels, navLabels, countdownHideAfterDays, routineTimeCutoffs, homeCalendarView } = req.body;
   const parsedHideAfterDays = Number(countdownHideAfterDays);
   const settings = {
     hiddenNavItems: Array.isArray(hiddenNavItems)
       ? hiddenNavItems.filter(id => TOGGLEABLE_NAV_ITEMS.includes(id))
       : current.hiddenNavItems,
+    hiddenHomePanels: Array.isArray(hiddenHomePanels)
+      ? hiddenHomePanels.filter(id => HOME_PANEL_IDS.includes(id))
+      : (current.hiddenHomePanels || []),
+    navLabels: navLabels !== undefined
+      ? sanitizeNavLabels(navLabels, current.navLabels)
+      : (current.navLabels || {}),
     countdownHideAfterDays: Number.isFinite(parsedHideAfterDays) && parsedHideAfterDays >= 0
       ? parsedHideAfterDays
       : current.countdownHideAfterDays,

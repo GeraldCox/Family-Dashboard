@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { api } from './api';
 import WeatherBar from './components/WeatherBar';
-import Sidebar from './components/Sidebar';
+import Sidebar, { TABS as NAV_TABS } from './components/Sidebar';
 import HomeTab from './components/HomeTab';
 import Calendar from './components/Calendar';
 import Chores from './components/Chores';
@@ -19,7 +19,7 @@ import { useScreenSize } from './hooks/useScreenSize';
 import { useDayNight } from './hooks/useDayNight';
 
 const DEFAULT_SCREENSAVER_SETTINGS = { inactivityMinutes: 5, transitionSeconds: 6, brightness: 100 };
-const DEFAULT_GENERAL_SETTINGS = { hiddenNavItems: [], homeCalendarView: 'month' };
+const DEFAULT_GENERAL_SETTINGS = { hiddenNavItems: [], hiddenHomePanels: [], navLabels: {}, homeCalendarView: 'month' };
 const ACTIVITY_EVENTS = ['mousemove', 'touchstart', 'keydown', 'click'];
 
 const VIEW_OPTIONS = [
@@ -33,6 +33,16 @@ const VALID_CALENDAR_VIEWS = VIEW_OPTIONS.map(o => o.id);
 function getStoredCalendarView() {
   const stored = localStorage.getItem('calendarView');
   return VALID_CALENDAR_VIEWS.includes(stored) ? stored : 'month';
+}
+
+const VALID_TAB_IDS = NAV_TABS.map(t => t.id);
+
+// Reopens whatever tab was showing before a refresh, instead of always
+// dropping back to Home. Falls back to 'home' for a stored id that's no
+// longer valid (e.g. saved before a code change removed a tab).
+function getStoredTab() {
+  const stored = localStorage.getItem('activeTab');
+  return VALID_TAB_IDS.includes(stored) ? stored : 'home';
 }
 
 // How long a chip needs to be held before it solos that calendar. Short
@@ -114,7 +124,7 @@ function CalendarTab({ view, onViewChange, filters, onToggleFilter, onSoloFilter
 }
 
 export default function App() {
-  const [tab, setTab] = useState('home');
+  const [tab, setTab] = useState(getStoredTab);
   const [calendarView, setCalendarView] = useState(getStoredCalendarView);
   const [calendarFilters, setCalendarFilters] = useState({});
   const [calendarSources, setCalendarSources] = useState([]);
@@ -130,6 +140,10 @@ export default function App() {
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', isDark ? 'dark' : 'light');
   }, [isDark]);
+
+  useEffect(() => {
+    localStorage.setItem('activeTab', tab);
+  }, [tab]);
 
   useEffect(() => {
     api.calendarChips().then(res => setCalendarSources(res.sources || [])).catch(console.error);
@@ -215,14 +229,20 @@ export default function App() {
         />
       )}
 
-      <Sidebar tab={tab} onChange={setTab} hiddenNavItems={generalSettings.hiddenNavItems} />
+      <Sidebar tab={tab} onChange={setTab} hiddenNavItems={generalSettings.hiddenNavItems} navLabels={generalSettings.navLabels} />
 
       <div style={s.mainCol}>
         <WeatherBar />
 
         <div style={s.content}>
           {tab === 'home' && (
-            <HomeTab view={generalSettings.homeCalendarView || 'month'} filters={calendarFilters} />
+            <HomeTab
+              view={generalSettings.homeCalendarView || 'month'}
+              filters={calendarFilters}
+              onNavigate={setTab}
+              hiddenPanels={generalSettings.hiddenHomePanels}
+              navLabels={generalSettings.navLabels}
+            />
           )}
 
           {tab === 'calendar' && (

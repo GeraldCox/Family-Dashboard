@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { api } from '../api';
 import { useScreenSize } from '../hooks/useScreenSize';
 import Avatar from './Avatar';
+import Icon from './Icon';
 
 const STAR_REWARD_PEOPLE = ['kid1', 'kid2'];
 const CONFETTI_EMOJI = ['🎉', '✨', '⭐', '🎊'];
@@ -63,13 +64,24 @@ function ChoreCard({ chore, color, isMobile, onToggle, floatingStars }) {
   );
 }
 
-export default function Chores() {
+export default function Chores({ compact = false }) {
   const [data, setData] = useState(null);
   const [personColors, setPersonColors] = useState({});
   const [floatingStars, setFloatingStars] = useState([]); // [{ popId, choreId }]
   const [claimingId, setClaimingId] = useState(null);
   const [celebrations, setCelebrations] = useState({}); // rewardId -> particles
+  // Compact (Home panel) cards only — which ones are collapsed, keyed by
+  // personId or 'grabs'. Everything starts expanded.
+  const [collapsedCards, setCollapsedCards] = useState(() => new Set());
   const { isMobile } = useScreenSize();
+
+  function toggleCardCollapsed(key) {
+    setCollapsedCards(prev => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key); else next.add(key);
+      return next;
+    });
+  }
 
   useEffect(() => { api.chores().then(setData).catch(console.error); }, []);
   useEffect(() => {
@@ -156,6 +168,123 @@ export default function Chores() {
   // even if that person is later hidden from the page.
   const personById = Object.fromEntries(data.people.map(p => [p.id, p]));
   const visiblePeople = data.people.filter(p => !p.hidden);
+
+  if (compact) {
+    return (
+      <div style={s.compactWrap}>
+        {visiblePeople.length === 0 && <div style={s.empty}>No one to show here yet.</div>}
+        {visiblePeople.map(person => {
+          const color = personColors[person.id] || person.color;
+          const total = person.chores.length;
+          const done = person.chores.filter(c => c.done).length;
+          const pct = total ? (done / total) * 100 : 0;
+          const collapsed = collapsedCards.has(person.id);
+          return (
+            <div key={person.id} style={{ ...s.compactList, borderLeft: `3px solid ${color}` }}>
+              <div style={s.compactCardHeader} onClick={() => toggleCardCollapsed(person.id)}>
+                <Avatar person={{ name: person.name, color, photoUrl: person.photoUrl }} size={30} />
+                <div style={{ ...s.compactCardName, color }}>{person.name}</div>
+                <div style={s.compactProgressWrap}>
+                  <div style={s.compactProgressTrack}>
+                    <div style={{ ...s.compactProgressFill, width: `${pct}%`, background: color }} />
+                  </div>
+                  <div style={s.compactProgressLabel}>{done}/{total}</div>
+                </div>
+                <div style={{ ...s.compactChevron, transform: collapsed ? 'rotate(0deg)' : 'rotate(90deg)' }}>
+                  <Icon name="chevron-right" size={16} />
+                </div>
+              </div>
+              <div style={{ ...s.compactBodyOuter, maxHeight: collapsed ? 0 : 400 }}>
+                <div style={s.compactCardBody}>
+                  {person.chores.length === 0 ? (
+                    <div style={s.compactDone}>No chores yet</div>
+                  ) : (
+                    person.chores.slice(0, 4).map(chore => (
+                      <div key={chore.id} style={s.compactStepRow} onClick={() => toggle(person, chore)}>
+                        <div style={{ ...s.compactStepCircle, ...(chore.done ? s.compactStepCircleDone : {}) }}>
+                          {chore.done && <Icon name="check" size={13} />}
+                        </div>
+                        <span style={s.compactEmoji}>{chore.emoji}</span>
+                        <span style={{ ...s.compactItemName, ...(chore.done ? s.compactItemDone : {}) }}>{chore.name}</span>
+                        <span style={s.compactItemStars}>{'⭐'.repeat(chore.stars || 1)}</span>
+                      </div>
+                    ))
+                  )}
+                  {person.chores.length > 4 && <div style={s.compactMore}>+{person.chores.length - 4} more</div>}
+                </div>
+              </div>
+            </div>
+          );
+        })}
+
+        <div style={{ ...s.compactList, borderLeft: `3px solid ${GRABS_COLOR}` }}>
+          <div style={s.compactCardHeader} onClick={() => toggleCardCollapsed('grabs')}>
+            <div style={s.compactGrabsIcon}>🎯</div>
+            <div style={s.compactCardName}>Up for Grabs</div>
+            <div style={s.compactProgressWrap}>
+              <div style={s.compactProgressTrack}>
+                <div style={{ ...s.compactProgressFill, width: `${upForGrabs.length ? (claimed.length / upForGrabs.length) * 100 : 0}%`, background: GRABS_COLOR }} />
+              </div>
+              <div style={s.compactProgressLabel}>{claimed.length}/{upForGrabs.length}</div>
+            </div>
+            <div style={{ ...s.compactChevron, transform: collapsedCards.has('grabs') ? 'rotate(0deg)' : 'rotate(90deg)' }}>
+              <Icon name="chevron-right" size={16} />
+            </div>
+          </div>
+          <div style={{ ...s.compactBodyOuter, maxHeight: collapsedCards.has('grabs') ? 0 : 400 }}>
+          <div style={s.compactCardBody}>
+          {upForGrabs.length === 0 ? (
+            <div style={s.compactDone}>Nothing here yet</div>
+          ) : (
+            upForGrabs.slice(0, 4).map(chore => {
+              if (chore.done) {
+                const doneByPerson = personById[chore.doneBy];
+                return (
+                  <div
+                    key={chore.id}
+                    style={{ ...s.compactItem, ...s.compactItemDone }}
+                    onClick={() => unclaimChore(chore)}
+                    title="Tap to unclaim"
+                  >
+                    <span style={s.compactEmoji}>{chore.emoji}</span>
+                    <span style={s.compactItemName}>{chore.name} · {doneByPerson ? doneByPerson.name : 'someone'}</span>
+                    <span style={s.compactItemStars}>{'⭐'.repeat(chore.stars || 1)}</span>
+                  </div>
+                );
+              }
+              if (claimingId === chore.id) {
+                return (
+                  <div key={chore.id} style={s.compactPickerRow}>
+                    {visiblePeople.map(person => (
+                      <button
+                        key={person.id}
+                        style={s.compactPickerAvatarBtn}
+                        onClick={() => claimChore(chore, person)}
+                        title={`Claim as ${person.name}`}
+                      >
+                        <Avatar person={person} size={22} />
+                      </button>
+                    ))}
+                    <button style={s.compactPickerCancel} onClick={() => setClaimingId(null)}>✕</button>
+                  </div>
+                );
+              }
+              return (
+                <div key={chore.id} style={s.compactItem} onClick={() => setClaimingId(chore.id)}>
+                  <span style={s.compactEmoji}>{chore.emoji}</span>
+                  <span style={s.compactItemName}>{chore.name}</span>
+                  <span style={s.compactItemStars}>{'⭐'.repeat(chore.stars || 1)}</span>
+                </div>
+              );
+            })
+          )}
+          {upForGrabs.length > 4 && <div style={s.compactMore}>+{upForGrabs.length - 4} more</div>}
+          </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   // One column per visible person plus "Up for Grabs" — grid tracks are all
   // 1fr, so hiding a person shrinks the column count and lets the remaining
@@ -354,6 +483,71 @@ const s = {
   },
   empty: { padding: 20, color: 'var(--text-3)' },
   emptySmall: { fontSize: 14, color: 'var(--text-3)', fontStyle: 'italic', padding: '4px 0' },
+
+  // Narrow single-column layout for the Home page side panel — same shape
+  // as Tasks' compact mode, one card per person instead of per task list.
+  compactWrap: { display: 'flex', flexDirection: 'column', gap: 10, padding: 14, overflowY: 'auto', height: '100%' },
+  // flexShrink:0 keeps each card at its natural height inside compactWrap's
+  // flex column — without it, flexbox squeezes cards to fit the available
+  // space (clipping their own content) instead of letting the wrap actually
+  // overflow, which is what makes its overflowY:auto scroll in the first place.
+  compactList: { background: 'var(--bg)', borderRadius: 10, overflow: 'hidden', flexShrink: 0 },
+  // Collapsible wrapper shared by every compact card's body — same
+  // max-height-transition trick as Routines' stepsOuter.
+  compactBodyOuter: { overflow: 'hidden', transition: 'max-height 0.25s ease' },
+  compactChevron: {
+    color: 'var(--text-3)', flexShrink: 0, marginLeft: 'auto',
+    display: 'flex', alignItems: 'center', justifyContent: 'center',
+    transition: 'transform 0.2s ease',
+  },
+  // Per-person card header/steps, styled to match Routines' bubble cards —
+  // avatar + name + progress bar/count up top, circle-checkbox rows below.
+  compactCardHeader: { display: 'flex', alignItems: 'center', gap: 8, padding: '10px 12px 8px', cursor: 'pointer' },
+  // Stands in for the person cards' Avatar on the Up for Grabs card, which
+  // has no single person to show a photo for.
+  compactGrabsIcon: {
+    width: 30, height: 30, borderRadius: '50%', background: 'var(--surface2)', flexShrink: 0,
+    display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 15,
+  },
+  compactCardName: {
+    fontSize: 16, fontWeight: 700, flex: 1, minWidth: 0,
+    overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+  },
+  compactProgressWrap: { display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 },
+  compactProgressTrack: { width: 44, height: 6, borderRadius: 99, background: 'var(--border-md)', overflow: 'hidden' },
+  compactProgressFill: { height: '100%', borderRadius: 99, transition: 'width 0.2s ease' },
+  compactProgressLabel: { fontSize: 13, fontWeight: 700, color: 'var(--text-3)', minWidth: 26, textAlign: 'right' },
+  compactCardBody: { display: 'flex', flexDirection: 'column', gap: 1, padding: '0 8px 8px' },
+  compactStepRow: {
+    display: 'flex', alignItems: 'center', gap: 8, padding: '5px 4px', cursor: 'pointer', borderRadius: 8,
+  },
+  compactStepCircle: {
+    width: 22, height: 22, borderRadius: '50%', border: '2px solid var(--border-md)', flexShrink: 0,
+    display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white',
+    transition: 'background 0.15s, border-color 0.15s',
+  },
+  compactStepCircleDone: { background: 'var(--green)', borderColor: 'var(--green)' },
+  compactItem: {
+    fontSize: 14, color: 'var(--text-1)', padding: '3px 0', display: 'flex',
+    alignItems: 'center', gap: 6, cursor: 'pointer',
+  },
+  // Stays in the list (rather than disappearing) so a tap can undo it —
+  // muted + struck through instead of removed.
+  compactItemDone: { color: 'var(--text-3)', textDecoration: 'line-through' },
+  compactEmoji: { fontSize: 17, flexShrink: 0, width: 20, textAlign: 'center' },
+  compactItemName: {
+    fontSize: 13, flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+  },
+  compactItemStars: { fontSize: 10, letterSpacing: '-1px', flexShrink: 0, marginLeft: 6, opacity: 0.9 },
+  compactDone: { fontSize: 14, color: 'var(--text-3)' },
+  compactMore: { fontSize: 13, color: 'var(--text-3)', marginTop: 2 },
+  compactPickerRow: { display: 'flex', gap: 5, alignItems: 'center', flexWrap: 'wrap', padding: '3px 0' },
+  compactPickerAvatarBtn: { background: 'none', border: 'none', padding: 0, cursor: 'pointer', flexShrink: 0 },
+  compactPickerCancel: {
+    width: 20, height: 20, borderRadius: '50%', display: 'flex', alignItems: 'center',
+    justifyContent: 'center', fontSize: 11, color: 'var(--text-3)', background: 'var(--surface)',
+    border: '0.5px solid var(--border)', flexShrink: 0,
+  },
 
   column: {
     display: 'flex', flexDirection: 'column', height: '100%',
