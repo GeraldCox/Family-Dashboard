@@ -8,6 +8,9 @@ const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
 const DAY_START_HOUR = 6;
 const DAY_END_HOUR = 22;
+// How long a legend item needs to be held before it solos that calendar —
+// matches the same gesture on the Calendar page's filter chips.
+const SOLO_HOLD_MS = 500;
 
 function EventDetail({ events, date, onClose, onChanged }) {
   const [editingEvent, setEditingEvent] = useState(null);
@@ -139,7 +142,7 @@ function applyFilters(events, filters) {
   return events.filter(ev => filters[ev.source] !== false);
 }
 
-export default function Calendar({ view = 'month', filters = {}, refreshToken }) {
+export default function Calendar({ view = 'month', filters = {}, refreshToken, showLegend = false }) {
   const today = new Date();
   const [cur, setCur] = useState({ year: today.getFullYear(), month: today.getMonth() });
   const [anchor, setAnchor] = useState(() => { const d = new Date(); d.setHours(0,0,0,0); return d; });
@@ -148,11 +151,60 @@ export default function Calendar({ view = 'month', filters = {}, refreshToken })
   const [selected, setSelected] = useState(null);
   const [localRefreshToken, setLocalRefreshToken] = useState(0);
   const [gridHeight, setGridHeight] = useState(0);
-  const [people, setPeople] = useState([]);
+  const [legendItems, setLegendItems] = useState([]);
+  // Independent of whatever `filters` this instance was handed — Home's
+  // legend is its own self-contained filter control, deliberately not tied
+  // to the Calendar page's chips (same reasoning as the view setting: Home
+  // shouldn't change because of something toggled on the Calendar page, or
+  // vice versa).
+  const [legendFilters, setLegendFilters] = useState({});
+  const legendHoldTimerRef = useRef(null);
+  const legendSoloFiredRef = useRef(false);
   const gridWrapRef = useRef(null);
   const { isMobile } = useScreenSize();
 
-  useEffect(() => { api.people().then(res => setPeople(res.people || [])).catch(console.error); }, []);
+  // Only fetched where there's no other way to tell calendars apart — Home
+  // has no filter chips of its own, so it opts into this read-only color
+  // key via showLegend. The dedicated Calendar page's chips already serve
+  // this purpose, so it leaves showLegend off.
+  useEffect(() => {
+    if (!showLegend) return;
+    api.calendarChips().then(res => setLegendItems(res.sources || [])).catch(console.error);
+  }, [showLegend]);
+
+  function toggleLegendFilter(id) {
+    setLegendFilters(prev => ({ ...prev, [id]: prev[id] === false ? true : false }));
+  }
+
+  function soloLegendFilter(id) {
+    setLegendFilters(prev => {
+      const isOnlySelected = legendItems.every(item => (
+        item.id === id ? prev[item.id] !== false : prev[item.id] === false
+      ));
+      if (isOnlySelected) return {};
+      const next = {};
+      legendItems.forEach(item => { next[item.id] = item.id === id; });
+      return next;
+    });
+  }
+
+  function handleLegendPressStart(id) {
+    legendSoloFiredRef.current = false;
+    clearTimeout(legendHoldTimerRef.current);
+    legendHoldTimerRef.current = setTimeout(() => {
+      legendSoloFiredRef.current = true;
+      soloLegendFilter(id);
+    }, SOLO_HOLD_MS);
+  }
+
+  function handleLegendPressEnd() {
+    clearTimeout(legendHoldTimerRef.current);
+  }
+
+  function handleLegendClick(id) {
+    if (legendSoloFiredRef.current) { legendSoloFiredRef.current = false; return; }
+    toggleLegendFilter(id);
+  }
 
   // Measure the actual available height for the month grid so row height fits
   // whatever chrome is above it (weather bar, controls that may wrap, header,
@@ -196,7 +248,7 @@ export default function Calendar({ view = 'month', filters = {}, refreshToken })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [view, cur.year, cur.month, anchor.getTime(), refreshToken, localRefreshToken]);
 
-  const filteredEvents = applyFilters(events, filters);
+  const filteredEvents = applyFilters(events, showLegend ? legendFilters : filters);
 
   function changeMonth(dir) {
     setCur(c => {
@@ -482,26 +534,6 @@ export default function Calendar({ view = 'month', filters = {}, refreshToken })
         />
       )}
 
-      {view === 'month' && (
-        <div style={{ ...styles.legend, ...(isMobile ? styles.legendMobile : {}) }}>
-          {[
-            { id: 'parent1', label: 'Parent 1', color: '#3b82f6' },
-            { id: 'parent2', label: 'Parent 2', color: '#db2777' },
-            { id: 'family', label: 'Family', color: '#059669' },
-            { id: 'work', label: 'Work', color: '#16a34a' },
-            { id: 'holidays', label: 'Holidays', color: '#d97706' },
-          ].map(l => {
-            const person = people.find(p => p.id === l.id);
-            return person ? { ...l, label: person.name } : l;
-          }).map(l => (
-            <div key={l.id} style={{ ...styles.lgItem, ...(isMobile ? styles.lgItemMobile : {}) }}>
-              <div style={{ ...styles.lgDot, background: l.color }} />
-              {l.label}
-            </div>
-          ))}
-        </div>
-      )}
-
       {selected && view === 'month' && (
         <EventDetail
           events={allEventsForDay(selected, true)}
@@ -509,6 +541,31 @@ export default function Calendar({ view = 'month', filters = {}, refreshToken })
           onClose={() => setSelected(null)}
           onChanged={refreshEvents}
         />
+      )}
+
+      {showLegend && legendItems.length > 0 && (
+        <div style={{ ...styles.legend, ...(isMobile ? styles.legendMobile : {}) }}>
+          {legendItems.map(item => {
+            const enabled = legendFilters[item.id] !== false;
+            return (
+              <button
+                key={item.id}
+                style={{ ...styles.lgItem, ...(isMobile ? styles.lgItemMobile : {}), ...(enabled ? {} : styles.lgItemOff) }}
+                onClick={() => handleLegendClick(item.id)}
+                onTouchStart={() => handleLegendPressStart(item.id)}
+                onTouchEnd={handleLegendPressEnd}
+                onTouchCancel={handleLegendPressEnd}
+                onMouseDown={() => handleLegendPressStart(item.id)}
+                onMouseUp={handleLegendPressEnd}
+                onMouseLeave={handleLegendPressEnd}
+                title={`Tap to show/hide ${item.name} — hold to show only ${item.name}`}
+              >
+                <div style={{ ...styles.lgDot, background: item.color, opacity: enabled ? 1 : 0.35 }} />
+                {item.name}
+              </button>
+            );
+          })}
+        </div>
       )}
 
     </div>
@@ -658,7 +715,14 @@ const styles = {
   dotsMore: { fontSize: 9, color: 'var(--text-3)', fontWeight: 600 },
   legend: { display: 'flex', gap: 14, padding: '8px 16px', borderTop: '0.5px solid var(--border)', flexWrap: 'wrap', flexShrink: 0 },
   legendMobile: { flexWrap: 'nowrap', overflowX: 'auto', gap: 10, padding: '6px 12px' },
-  lgItem: { display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, color: 'var(--text-2)', fontWeight: 500 },
+  lgItem: {
+    display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, color: 'var(--text-2)', fontWeight: 500,
+    border: 'none', background: 'transparent', padding: 0, cursor: 'pointer',
+    // Holding an item to solo it would otherwise trigger the browser's
+    // native text-selection/callout instead of (or alongside) the gesture.
+    userSelect: 'none', WebkitUserSelect: 'none', WebkitTouchCallout: 'none',
+  },
+  lgItemOff: { color: 'var(--text-3)', opacity: 0.6 },
   lgItemMobile: { flexShrink: 0, whiteSpace: 'nowrap' },
   lgDot: { width: 9, height: 9, borderRadius: '50%' },
 };

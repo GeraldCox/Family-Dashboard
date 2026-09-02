@@ -114,7 +114,7 @@ export default function HomeTab({ view, filters }) {
         }}
       >
         <div style={s.calSide}>
-          <Calendar view={view} filters={filters} />
+          <Calendar view={view} filters={filters} showLegend />
         </div>
 
         {!isMobile && (
