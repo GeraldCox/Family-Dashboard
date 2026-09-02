@@ -369,7 +369,6 @@ const STAR_REWARD_PEOPLE = ['kid1', 'kid2'];
 function ChoresEditor({ isMobile }) {
   const [data, setData] = useState(null);
   const [drafts, setDrafts] = useState({}); // personId -> { name, emoji, reset }
-  const [rewardDrafts, setRewardDrafts] = useState({}); // personId -> { name, stars }
   const [grabsDraft, setGrabsDraft] = useState({ name: '', emoji: '', stars: 1, reset: 'weekly' });
   const [rewardItemDrafts, setRewardItemDrafts] = useState({}); // personId -> { name, emoji, starsRequired }
   const [adjustDrafts, setAdjustDrafts] = useState({}); // personId -> amount string
@@ -399,14 +398,6 @@ function ChoresEditor({ isMobile }) {
 
   function setDraft(personId, patch) {
     setDrafts(prev => ({ ...prev, [personId]: { ...getDraft(personId), ...patch } }));
-  }
-
-  function getRewardDraft(person) {
-    return rewardDrafts[person.id] || { name: person.rewardGoal?.name || '', stars: person.rewardGoal?.stars ?? 20 };
-  }
-
-  function setRewardDraft(personId, patch) {
-    setRewardDrafts(prev => ({ ...prev, [personId]: { ...(prev[personId] || {}), ...patch } }));
   }
 
   function getRewardItemDraft(personId) {
@@ -494,16 +485,6 @@ function ChoresEditor({ isMobile }) {
     await api.setPersonHidden(personId, hidden);
   }
 
-  async function saveReward(personId, draft) {
-    const name = draft.name.trim() || 'Reward';
-    const stars = Number(draft.stars) || 0;
-    await api.setRewardGoal(personId, name, stars);
-    setData(prev => ({
-      ...prev,
-      people: prev.people.map(p => p.id !== personId ? p : { ...p, rewardGoal: { name, stars } })
-    }));
-  }
-
   if (!data) return <div style={s.empty}>Loading chores…</div>;
 
   const upForGrabs = data.upForGrabs || [];
@@ -580,7 +561,6 @@ function ChoresEditor({ isMobile }) {
       {data.people.map(person => {
         const draft = getDraft(person.id);
         const showReward = STAR_REWARD_PEOPLE.includes(person.id);
-        const rewardDraft = getRewardDraft(person);
         return (
           <div key={person.id} style={{ ...s.card, ...(person.hidden ? s.cardHidden : {}) }}>
             <div style={s.personHead}>
@@ -665,34 +645,6 @@ function ChoresEditor({ isMobile }) {
                 Add
               </button>
             </div>
-
-            {showReward && (
-              <div style={s.rewardEditor}>
-                <div style={s.rewardLabel}>Reward Goal</div>
-                <div style={{ ...s.addRow, ...(isMobile ? s.addRowMobile : {}) }}>
-                  <input
-                    style={s.nameInput}
-                    type="text"
-                    placeholder="Reward name"
-                    value={rewardDraft.name}
-                    onChange={e => setRewardDraft(person.id, { name: e.target.value })}
-                  />
-                  <input
-                    style={{ ...s.starsNumberInput, ...(isMobile ? s.fullWidthInput : {}) }}
-                    type="number"
-                    min={1}
-                    value={rewardDraft.stars}
-                    onChange={e => setRewardDraft(person.id, { stars: e.target.value })}
-                  />
-                  <button
-                    style={{ ...s.addBtn, background: person.color }}
-                    onClick={() => saveReward(person.id, rewardDraft)}
-                  >
-                    Save
-                  </button>
-                </div>
-              </div>
-            )}
 
             {showReward && (
               <div style={s.rewardEditor}>
@@ -921,7 +873,7 @@ function RoutinesEditor({ isMobile }) {
         <div style={{ ...s.emptySmall, marginBottom: 10 }}>
           Complete-by time for each period. Past this time, an unfinished routine is flagged; a finished one collapses automatically.
         </div>
-        <div style={{ ...s.addRow, ...(isMobile ? s.addRowMobile : {}), flexWrap: 'wrap' }}>
+        <div style={{ ...s.addRow, ...(isMobile ? s.addRowMobile : {}), flexWrap: 'wrap', alignItems: 'flex-end' }}>
           {ROUTINE_TIME_OPTIONS.map(t => (
             <label key={t} style={s.cutoffLabel}>
               {capitalize(t)}

@@ -405,7 +405,7 @@ function initDefaults() {
     writeJSON(FILES.chores, {
       people: [
         {
-          id: 'parent1', name: 'Parent 1', color: '#3b82f6', totalStars: 0, rewardGoal: { name: 'Ice cream trip', stars: 20 }, rewards: [],
+          id: 'parent1', name: 'Parent 1', color: '#3b82f6', totalStars: 0, rewards: [],
           chores: [
             { id: 'c1', name: 'Take out trash', emoji: '🗑️', reset: 'weekly', done: false, doneAt: null, stars: 1 },
             { id: 'c2', name: 'Mow the lawn', emoji: '🌿', reset: 'weekly', done: false, doneAt: null, stars: 1 },
@@ -413,7 +413,7 @@ function initDefaults() {
           ]
         },
         {
-          id: 'parent2', name: 'Parent 2', color: '#8b5cf6', totalStars: 0, rewardGoal: { name: 'Ice cream trip', stars: 20 }, rewards: [],
+          id: 'parent2', name: 'Parent 2', color: '#8b5cf6', totalStars: 0, rewards: [],
           chores: [
             { id: 'c4', name: 'Laundry', emoji: '🧺', reset: 'weekly', done: false, doneAt: null, stars: 1 },
             { id: 'c5', name: 'Vacuum living room', emoji: '🧹', reset: 'weekly', done: false, doneAt: null, stars: 1 },
@@ -421,7 +421,7 @@ function initDefaults() {
           ]
         },
         {
-          id: 'kid1', name: 'Kid 1', color: '#db2777', totalStars: 0, rewardGoal: { name: 'Ice cream trip', stars: 20 },
+          id: 'kid1', name: 'Kid 1', color: '#db2777', totalStars: 0,
           rewards: [
             { id: 'r1', name: 'Extra screen time', starsRequired: 5, emoji: '📱' },
             { id: 'r2', name: 'Ice cream trip', starsRequired: 15, emoji: '🍦' },
@@ -433,7 +433,7 @@ function initDefaults() {
           ]
         },
         {
-          id: 'kid2', name: 'Kid 2', color: '#ea580c', totalStars: 0, rewardGoal: { name: 'Ice cream trip', stars: 20 },
+          id: 'kid2', name: 'Kid 2', color: '#ea580c', totalStars: 0,
           rewards: [
             { id: 'r3', name: 'Extra screen time', starsRequired: 5, emoji: '📱' },
             { id: 'r4', name: 'Ice cream trip', starsRequired: 15, emoji: '🍦' },
@@ -939,7 +939,6 @@ function migrateChoreRewards() {
 
   for (const person of data.people) {
     if (person.totalStars === undefined) { person.totalStars = 0; changed = true; }
-    if (!person.rewardGoal) { person.rewardGoal = { name: 'Ice cream trip', stars: 20 }; changed = true; }
     if (!person.rewards) { person.rewards = []; changed = true; }
     for (const chore of person.chores) {
       if (chore.stars === undefined) { chore.stars = 1; changed = true; }
@@ -1788,16 +1787,6 @@ app.delete('/api/chores/:personId/:choreId', (req, res) => {
   person.chores = person.chores.filter(c => c.id !== req.params.choreId);
   writeJSON(FILES.chores, data);
   res.json({ ok: true });
-});
-
-app.post('/api/chores/set-reward', (req, res) => {
-  const { personId, rewardName, rewardStars } = req.body;
-  const data = readJSON(FILES.chores, { people: [] });
-  const person = data.people.find(p => p.id === personId);
-  if (!person) return res.status(404).json({ error: 'Person not found' });
-  person.rewardGoal = { name: rewardName, stars: rewardStars };
-  writeJSON(FILES.chores, data);
-  res.json({ ok: true, rewardGoal: person.rewardGoal });
 });
 
 app.post('/api/chores/set-stars', (req, res) => {

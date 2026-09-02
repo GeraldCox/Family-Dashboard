@@ -40,7 +40,6 @@ export const api = {
   addChore: (personId, name, emoji, reset) => post('/chores/add', { personId, name, emoji, reset }),
   setPersonHidden: (personId, hidden) => post('/chores/set-person-hidden', { personId, hidden }),
   deleteChore: (personId, choreId) => del(`/chores/${personId}/${choreId}`),
-  setRewardGoal: (personId, rewardName, rewardStars) => post('/chores/set-reward', { personId, rewardName, rewardStars }),
   setChoreStars: (personId, choreId, stars) => post('/chores/set-stars', { personId, choreId, stars }),
   adjustStars: (personId, amount) => post('/chores/adjust-stars', { personId, amount }),
   upForGrabsChores: () => get('/chores/up-for-grabs'),

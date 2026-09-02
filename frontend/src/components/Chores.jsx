@@ -3,12 +3,6 @@ import { api } from '../api';
 import { useScreenSize } from '../hooks/useScreenSize';
 import Avatar from './Avatar';
 
-const RESET_COLORS = {
-  daily:  { bg: '#dbeafe', color: '#1e40af' },
-  weekly: { bg: '#ede9fe', color: '#5b21b6' },
-  manual: { bg: '#d1fae5', color: '#065f46' },
-};
-
 const STAR_REWARD_PEOPLE = ['kid1', 'kid2'];
 const CONFETTI_EMOJI = ['🎉', '✨', '⭐', '🎊'];
 const GRABS_COLOR = '#1e2533';
@@ -59,9 +53,6 @@ function ChoreCard({ chore, color, isMobile, onToggle, floatingStars }) {
           {chore.name}
         </div>
         <div style={s.choreMeta}>
-          <div style={{ ...s.resetBadge, ...RESET_COLORS[chore.reset] }}>
-            Resets {chore.reset}
-          </div>
           <div style={s.choreStars}>{'⭐'.repeat(chore.stars || 1)}</div>
         </div>
       </div>
@@ -378,7 +369,6 @@ const s = {
   choreName: { fontSize: 15, fontWeight: 600, color: 'var(--text-1)', marginBottom: 3 },
   doneText: { textDecoration: 'line-through', color: 'var(--text-3)' },
   choreMeta: { display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' },
-  resetBadge: { fontSize: 10, padding: '2px 6px', borderRadius: 20, fontWeight: 600, display: 'inline-block' },
   choreStars: { fontSize: 10, letterSpacing: '-1px' },
   check: { width: 28, height: 28, borderRadius: 7, border: '2px solid var(--border-md)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, transition: 'all 0.15s' },
   checkDone: { background: '#22c55e', borderColor: '#22c55e' },
