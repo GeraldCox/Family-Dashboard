@@ -211,21 +211,26 @@ function dedupeCaldavAgainstGoogle(caldavEvents, googleEvents) {
 
 // Enabling more than one calendar (own + a shared family calendar, say) can
 // pull in the same underlying event twice — Google hands back its own copy
-// on each calendar it's shared to. Same title/start match as above; keeps
-// whichever copy was fetched first.
+// on each calendar it's shared to. Same title/start match as above, but
+// instead of just dropping the extra copies, merge them into one event that
+// remembers every calendar (color + source) it appeared on, so the frontend
+// can render a multi-color event instead of silently picking one calendar's
+// color and hiding the rest.
 function dedupeGoogleEvents(googleEvents) {
-  const seen = new Set();
-  let removed = 0;
-  const deduped = googleEvents.filter(ev => {
+  const byKey = new Map();
+  let merged = 0;
+  googleEvents.forEach(ev => {
     const key = dedupeKey(ev);
-    if (seen.has(key)) {
-      removed++;
-      return false;
+    const existing = byKey.get(key);
+    if (existing) {
+      if (!existing.colors.includes(ev.color)) existing.colors.push(ev.color);
+      if (!existing.sources.includes(ev.source)) existing.sources.push(ev.source);
+      merged++;
+    } else {
+      byKey.set(key, { ...ev, colors: [ev.color], sources: [ev.source] });
     }
-    seen.add(key);
-    return true;
   });
-  return { events: deduped, removed };
+  return { events: [...byKey.values()], removed: merged };
 }
 
 // All-day events (no specific time to sort by) go first, ordered by their
@@ -1114,9 +1119,9 @@ app.get('/api/events', async (req, res) => {
     ]);
 
     const caldavFlat = caldavResults.flat();
-    const { events: googleFlat, removed: removedGoogleDupes } = dedupeGoogleEvents(googleResults.flat());
+    const { events: googleFlat, removed: mergedGoogleDupes } = dedupeGoogleEvents(googleResults.flat());
     const { events: dedupedCaldav, removed } = dedupeCaldavAgainstGoogle(caldavFlat, googleFlat);
-    console.log(`[/api/events] ${removed} duplicate event(s) removed (CalDAV vs OAuth), ${removedGoogleDupes} removed (Google cross-calendar) for ${y}-${m + 1}`);
+    console.log(`[/api/events] ${removed} duplicate event(s) removed (CalDAV vs OAuth), ${mergedGoogleDupes} merged into multi-calendar events (Google cross-calendar) for ${y}-${m + 1}`);
 
     res.json({ events: sortEventsForDisplay([...dedupedCaldav, ...googleFlat]) });
   } catch (err) {

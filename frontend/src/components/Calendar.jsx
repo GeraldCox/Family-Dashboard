@@ -139,7 +139,30 @@ function monthsInRange(start, end) {
 
 function applyFilters(events, filters) {
   if (!filters) return events;
-  return events.filter(ev => filters[ev.source] !== false);
+  return events.filter(ev => {
+    // Merged multi-calendar events carry every source they came from; show
+    // the event as long as at least one of those calendars is still enabled.
+    const sources = ev.sources && ev.sources.length > 0 ? ev.sources : [ev.source];
+    return sources.some(s => filters[s] !== false);
+  });
+}
+
+// Solid tint for a normal single-calendar event — exactly what each call
+// site used before, via its own `alpha` — or a diagonal multi-band tint
+// when an event was merged from more than one calendar, as a visual cue
+// that it's the same event on several calendars rather than a fully
+// opaque block (which would lose the app's existing tinted-pill look this
+// is meant to preserve for the single-calendar case).
+function eventBackground(ev, alpha = '22') {
+  const colors = ev.colors && ev.colors.length > 0 ? ev.colors : [ev.color];
+  if (colors.length <= 1) return colors[0] + alpha;
+  const step = 100 / colors.length;
+  const stops = [];
+  colors.forEach((c, i) => {
+    stops.push(`${c}40 ${(i * step).toFixed(2)}%`);
+    stops.push(`${c}40 ${((i + 1) * step).toFixed(2)}%`);
+  });
+  return `linear-gradient(135deg, ${stops.join(', ')})`;
 }
 
 export default function Calendar({ view = 'month', filters = {}, refreshToken, showLegend = false }) {
@@ -462,7 +485,7 @@ export default function Calendar({ view = 'month', filters = {}, refreshToken, s
                     ) : (
                       <div style={{ ...styles.pills, marginTop: topOffset - 28 }}>
                         {singleEvts.slice(0, Math.max(0, 3 - slotCount)).map((ev, j) => (
-                          <div key={j} style={{ ...styles.pill, background: ev.color + '22', color: ev.color, borderLeft: `4px solid ${ev.color}` }}>
+                          <div key={j} style={{ ...styles.pill, background: eventBackground(ev), color: ev.color, borderLeft: `4px solid ${ev.color}` }}>
                             {!ev.allDay && ev.start && ev.start.includes('T') && (
                               <span style={{ marginRight: 3, opacity: 0.8 }}>
                                 {new Date(ev.start).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
@@ -493,7 +516,7 @@ export default function Calendar({ view = 'month', filters = {}, refreshToken, s
                       left: `calc(${leftPct}% + ${seg.isStart ? 4 : 0}px)`,
                       width: `calc(${widthPct}% - ${seg.isStart ? 4 : 0}px - ${seg.isEnd ? 4 : 0}px)`,
                       height: 22,
-                      background: seg.ev.color + '28',
+                      background: eventBackground(seg.ev, '28'),
                       borderLeft: seg.isStart ? `3px solid ${seg.ev.color}` : 'none',
                       borderRight: seg.isEnd ? `1px solid ${seg.ev.color}44` : 'none',
                       borderRadius: seg.isStart && seg.isEnd ? 4 : seg.isStart ? '4px 0 0 4px' : seg.isEnd ? '0 4px 4px 0' : 0,
@@ -592,7 +615,7 @@ function DayGrid({ date, events, onChanged }) {
       {allDayEvents.length > 0 && (
         <div style={dayStyles.allDayRow}>
           {allDayEvents.map((ev, i) => (
-            <div key={i} style={{ ...dayStyles.allDayPill, background: ev.color + '22', color: ev.color, borderLeft: `3px solid ${ev.color}` }}>
+            <div key={i} style={{ ...dayStyles.allDayPill, background: eventBackground(ev), color: ev.color, borderLeft: `3px solid ${ev.color}` }}>
               {ev.title}
             </div>
           ))}
@@ -619,7 +642,7 @@ function DayGrid({ date, events, onChanged }) {
                   style={{
                     ...dayStyles.eventBlock,
                     top: `${top}%`, height: `${height}%`,
-                    background: ev.color + '26', borderLeft: `3px solid ${ev.color}`, color: ev.color,
+                    background: eventBackground(ev, '26'), borderLeft: `3px solid ${ev.color}`, color: ev.color,
                   }}
                   onClick={() => setOpenDate(date)}
                 >
@@ -669,7 +692,7 @@ function WeekGrid({ start, numDays, eventsForDate, today, onChanged }) {
                 </div>
                 <div style={weekStyles.pills}>
                   {dayEvents.slice(0, maxVisible).map((ev, j) => (
-                    <div key={j} style={{ ...weekStyles.pill, background: ev.color + '22', color: ev.color, borderLeft: `3px solid ${ev.color}` }}>
+                    <div key={j} style={{ ...weekStyles.pill, background: eventBackground(ev), color: ev.color, borderLeft: `3px solid ${ev.color}` }}>
                       {ev.title}
                     </div>
                   ))}
