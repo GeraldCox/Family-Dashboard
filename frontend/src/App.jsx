@@ -35,8 +35,35 @@ function getStoredCalendarView() {
   return VALID_CALENDAR_VIEWS.includes(stored) ? stored : 'month';
 }
 
-function CalendarTab({ view, onViewChange, filters, onToggleFilter, sources, refreshToken, onAddEvent }) {
+// How long a chip needs to be held before it solos that calendar. Short
+// enough to feel responsive but well past normal-tap length, matching the
+// native long-press threshold most touch platforms use (~500ms).
+const SOLO_HOLD_MS = 500;
+
+function CalendarTab({ view, onViewChange, filters, onToggleFilter, onSoloFilter, sources, refreshToken, onAddEvent }) {
   const { isMobile } = useScreenSize();
+  const holdTimerRef = useRef(null);
+  const soloFiredRef = useRef(false);
+
+  function handleChipPressStart(id) {
+    soloFiredRef.current = false;
+    clearTimeout(holdTimerRef.current);
+    holdTimerRef.current = setTimeout(() => {
+      soloFiredRef.current = true;
+      onSoloFilter(id);
+    }, SOLO_HOLD_MS);
+  }
+
+  function handleChipPressEnd() {
+    clearTimeout(holdTimerRef.current);
+  }
+
+  function handleChipClick(id) {
+    // A long-press already handled this interaction — don't also fire the
+    // normal single-chip toggle on release.
+    if (soloFiredRef.current) { soloFiredRef.current = false; return; }
+    onToggleFilter(id);
+  }
 
   return (
     <div style={s.calendarTab}>
@@ -60,7 +87,14 @@ function CalendarTab({ view, onViewChange, filters, onToggleFilter, sources, ref
               <button
                 key={src.id}
                 style={{ ...s.chip, ...(enabled ? {} : s.chipOff) }}
-                onClick={() => onToggleFilter(src.id)}
+                onClick={() => handleChipClick(src.id)}
+                onTouchStart={() => handleChipPressStart(src.id)}
+                onTouchEnd={handleChipPressEnd}
+                onTouchCancel={handleChipPressEnd}
+                onMouseDown={() => handleChipPressStart(src.id)}
+                onMouseUp={handleChipPressEnd}
+                onMouseLeave={handleChipPressEnd}
+                title={`Tap to show/hide ${src.name} — hold to show only ${src.name}`}
               >
                 <span style={{ ...s.chipDot, background: src.color, opacity: enabled ? 1 : 0.35 }} />
                 {src.name}
@@ -144,6 +178,21 @@ export default function App() {
     setCalendarFilters(prev => ({ ...prev, [id]: prev[id] === false ? true : false }));
   }
 
+  // Long-pressing a chip isolates that calendar (hides all others); doing it
+  // again when it's already the only one showing restores everyone instead
+  // of leaving the household stuck manually re-enabling every other chip.
+  function soloFilter(id) {
+    setCalendarFilters(prev => {
+      const isOnlySelected = calendarSources.every(src => (
+        src.id === id ? prev[src.id] !== false : prev[src.id] === false
+      ));
+      if (isOnlySelected) return {};
+      const next = {};
+      calendarSources.forEach(src => { next[src.id] = src.id === id; });
+      return next;
+    });
+  }
+
   function changeCalendarView(view) {
     localStorage.setItem('calendarView', view);
     setCalendarView(view);
@@ -182,6 +231,7 @@ export default function App() {
               onViewChange={changeCalendarView}
               filters={calendarFilters}
               onToggleFilter={toggleFilter}
+              onSoloFilter={soloFilter}
               sources={calendarSources}
               refreshToken={calendarRefreshToken}
               onAddEvent={() => setShowAddEvent(true)}
@@ -323,6 +373,9 @@ const s = {
     display: 'flex', alignItems: 'center', gap: 6, padding: '6px 12px',
     borderRadius: 20, fontSize: 14, fontWeight: 600, color: 'var(--text-1)',
     background: 'var(--surface)', boxShadow: 'var(--shadow-sm)',
+    // Holding the chip to solo it would otherwise trigger the browser's
+    // native text-selection/callout instead of (or alongside) the gesture.
+    userSelect: 'none', WebkitUserSelect: 'none', WebkitTouchCallout: 'none',
   },
   chipOff: {
     color: 'var(--text-3)', opacity: 0.6,
