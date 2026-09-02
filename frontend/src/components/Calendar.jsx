@@ -488,8 +488,8 @@ export default function Calendar({ view = 'month', filters = {}, refreshToken, s
                         {singleEvts.slice(0, Math.max(0, 3 - slotCount)).map((ev, j) => (
                           <div key={j} style={{ ...styles.pill, background: eventBackground(ev), color: ev.color, borderLeft: `4px solid ${ev.color}` }}>
                             {!ev.allDay && ev.start && ev.start.includes('T') && (
-                              <span style={{ marginRight: 3, opacity: 0.8 }}>
-                                {new Date(ev.start).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                              <span style={styles.pillTime}>
+                                {new Date(ev.start).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
                               </span>
                             )}
                             {ev.title}
@@ -697,10 +697,10 @@ function DayGrid({ date, events, onChanged }) {
                   }}
                   onClick={() => setOpenDate(date)}
                 >
-                  <span style={dayStyles.eventTitle}>{ev.title}</span>
                   <span style={dayStyles.eventTime}>
-                    {new Date(ev.start).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                    {new Date(ev.start).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
                   </span>
+                  <span style={dayStyles.eventTitle}>{ev.title}</span>
                 </div>
               );
             })}
@@ -744,7 +744,12 @@ function WeekGrid({ start, numDays, eventsForDate, today, onChanged }) {
                 <div style={weekStyles.pills}>
                   {dayEvents.slice(0, maxVisible).map((ev, j) => (
                     <div key={j} style={{ ...weekStyles.pill, background: eventBackground(ev), color: ev.color, borderLeft: `3px solid ${ev.color}` }}>
-                      {ev.title}
+                      {!ev.allDay && ev.start && ev.start.includes('T') && (
+                        <span style={styles.pillTime}>
+                          {new Date(ev.start).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
+                        </span>
+                      )}
+                      {' '}{ev.title}
                     </div>
                   ))}
                   {dayEvents.length > maxVisible && (
@@ -776,14 +781,24 @@ const styles = {
   grid: { display: 'grid', gridTemplateColumns: 'repeat(7,1fr)', height: '100%' },
   cell: { padding: '4px 4px 2px', borderRight: '1px solid var(--border)', borderBottom: '1px solid var(--border)', cursor: 'pointer', transition: 'background 0.12s', overflow: 'hidden', position: 'relative' },
   otherMonth: { background: 'var(--surface2)', opacity: 0.5 },
-  todayCell: { background: 'var(--accent)' },
+  // Same subtle accent blend as the week/2-week view's today column
+  // (weekStyles.colToday) — a flat var(--accent) fill here was much more
+  // saturated than that, so the "today" cue looked inconsistent across views.
+  todayCell: { background: 'color-mix(in srgb, var(--accent) 22%, var(--surface))' },
   selectedCell: { background: 'rgba(60,126,195,0.15)', outline: '2px solid var(--accent-blue)', outlineOffset: -2 },
   dayNum: { fontSize: 14, fontWeight: 500, color: 'var(--text-2)', width: 26, height: 26, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '50%', marginBottom: 2 },
   // Solid white + a fixed dark ink (not a theme variable) so the number stays
   // legible regardless of how bright/dark --accent is in either theme.
   todayNum: { background: 'white', color: '#0a1620', fontWeight: 700 },
   pills: { display: 'flex', flexDirection: 'column', gap: 2 },
-  pill: { fontSize: 13, padding: '3px 6px', borderRadius: 4, fontWeight: 500, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', display: 'flex', alignItems: 'center', gap: 2 },
+  // Matches weekStyles.pill's font size so event text reads the same size
+  // across the month, week, and 2-week views.
+  pill: { fontSize: 11, padding: '3px 6px', borderRadius: 4, fontWeight: 500, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', display: 'flex', alignItems: 'center', gap: 2 },
+  // Time prefix shared by the month pill and the week/2-week pill (title
+  // text there runs as small as 11px, so this has to undercut that) — white,
+  // regular weight, and a size down from the title so it reads as a label,
+  // not competing with the event name for attention.
+  pillTime: { fontSize: 10, fontWeight: 400, color: 'rgba(255,255,255,0.85)', flexShrink: 0 },
   dotsRow: { display: 'flex', flexWrap: 'wrap', gap: 3, alignItems: 'center' },
   evDot: { width: 6, height: 6, borderRadius: '50%', flexShrink: 0 },
   dotsMore: { fontSize: 9, color: 'var(--text-3)', fontWeight: 600 },
@@ -813,11 +828,14 @@ const dayStyles = {
   hourLine: { height: 48, borderBottom: '1px solid var(--border)' },
   eventBlock: {
     position: 'absolute', borderRadius: 6, padding: '4px 8px',
-    fontSize: 14, fontWeight: 600, overflow: 'hidden', cursor: 'pointer', display: 'flex',
-    flexDirection: 'column', gap: 2, boxShadow: '0 1px 2px rgba(0,0,0,0.08)',
+    fontSize: 14, fontWeight: 600, overflow: 'hidden', cursor: 'pointer',
+    boxShadow: '0 1px 2px rgba(0,0,0,0.08)',
   },
-  eventTitle: { whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' },
-  eventTime: { fontSize: 12, opacity: 0.8, fontWeight: 500 },
+  // Time flows inline right before the title (not stacked as its own line)
+  // so a short event still shows both — a two-line stack meant a very short
+  // block could run out of height before the title ever rendered.
+  eventTitle: {},
+  eventTime: { fontSize: 11, fontWeight: 400, color: 'rgba(255,255,255,0.85)', marginRight: 5 },
 };
 
 const weekStyles = {
