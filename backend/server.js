@@ -1053,7 +1053,7 @@ function migrateMealLibrary() {
   if (changed) writeJSON(FILES.mealLibrary, data);
 }
 
-function rateMealInLibrary(mealName, stars, note, date) {
+function rateMealInLibrary(mealName, stars, note, date, personId) {
   const data = readJSON(FILES.mealLibrary, { meals: [] });
   let meal = data.meals.find(m => m.name.toLowerCase() === (mealName || '').toLowerCase());
 
@@ -1063,7 +1063,7 @@ function rateMealInLibrary(mealName, stars, note, date) {
   }
   if (!meal.ratings) meal.ratings = [];
 
-  meal.ratings.push({ date: date || new Date().toISOString().slice(0, 10), stars: Number(stars), note: note || '' });
+  meal.ratings.push({ date: date || toDateStr(new Date()), stars: Number(stars), note: note || '', personId: personId || null });
   meal.averageRating = computeAverageRating(meal.ratings);
 
   writeJSON(FILES.mealLibrary, data);
@@ -2003,12 +2003,15 @@ app.post('/api/meals/update', (req, res) => {
 });
 
 app.post('/api/meals/rate-weekly', (req, res) => {
-  const { date, mealName, stars, note } = req.body;
+  const { date, mealName, stars, note, personId } = req.body;
   if (!mealName) return res.status(400).json({ error: 'Missing mealName' });
   if (stars === undefined || stars === null) return res.status(400).json({ error: 'Missing stars' });
   if (!date) return res.status(400).json({ error: 'Missing date' });
 
-  const meal = rateMealInLibrary(mealName, stars, note, date);
+  // The rating record's own date is when it was actually submitted (today),
+  // not the meal's planned date — those can differ by days when someone
+  // rates late, or rates a meal copied/dragged from a past day.
+  const meal = rateMealInLibrary(mealName, stars, note, toDateStr(new Date()), personId);
 
   const mealsData = readJSON(FILES.meals, { days: {} });
   if (!mealsData.days[date]) mealsData.days[date] = { meals: [], mealData: {} };
@@ -2311,7 +2314,25 @@ app.get('/api/recipes/scrape', async (req, res) => {
 });
 
 // Meal library
-app.get('/api/meal-library', (req, res) => res.json(readJSON(FILES.mealLibrary, { meals: [] })));
+app.get('/api/meal-library', (req, res) => {
+  const data = readJSON(FILES.mealLibrary, { meals: [] });
+  const mealsData = readJSON(FILES.meals, { days: {} });
+
+  // Most recent date each meal name appears in the plan (any date the file
+  // has an entry for, past or future) — not the same as when it was rated.
+  const lastPlannedByName = {};
+  for (const [dateKey, day] of Object.entries(mealsData.days || {})) {
+    for (const mealName of day.meals || []) {
+      const key = mealName.toLowerCase();
+      if (!lastPlannedByName[key] || dateKey > lastPlannedByName[key]) {
+        lastPlannedByName[key] = dateKey;
+      }
+    }
+  }
+
+  const meals = data.meals.map(m => ({ ...m, lastPlanned: lastPlannedByName[m.name.toLowerCase()] || null }));
+  res.json({ meals });
+});
 
 app.post('/api/meal-library/save', (req, res) => {
   const { name, sourceUrl, sourceName, ingredients, instructions } = req.body;
@@ -2338,11 +2359,11 @@ app.post('/api/meal-library/save', (req, res) => {
 });
 
 app.post('/api/meal-library/rate', (req, res) => {
-  const { mealName, stars, note, date } = req.body;
+  const { mealName, stars, note, date, personId } = req.body;
   if (!mealName) return res.status(400).json({ error: 'Missing mealName' });
   if (stars === undefined || stars === null) return res.status(400).json({ error: 'Missing stars' });
 
-  const meal = rateMealInLibrary(mealName, stars, note, date);
+  const meal = rateMealInLibrary(mealName, stars, note, date, personId);
   res.json({ ok: true, meal });
 });
 
@@ -2369,7 +2390,11 @@ app.get('/api/meal-library/:name/notes', (req, res) => {
 
   const notes = (meal.ratings || [])
     .filter(r => r.note && r.note.trim())
-    .map(r => ({ date: r.date, stars: r.stars, note: r.note }))
+    .map(r => ({ date: r.date, stars: r.stars, note: r.note, personId: r.personId || null }))
+    // Reverse first so same-day ratings come out most-recently-submitted
+    // first too (ratings are pushed in submission order); the stable sort
+    // that follows then only needs to break ties across different dates.
+    .reverse()
     .sort((a, b) => b.date.localeCompare(a.date));
 
   res.json({ notes });

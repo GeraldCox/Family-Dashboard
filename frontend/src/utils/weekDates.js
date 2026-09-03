@@ -61,14 +61,18 @@ export function isSameDate(a, b) {
     a.getDate() === b.getDate();
 }
 
-// Builds the 3 rolling week ranges (last / this / next) relative to today's real date.
-export function getThreeWeekRanges(today = new Date()) {
+// Builds rolling week ranges (last / this / next / following, ...) relative
+// to today's real date. Defaults to the original 3; pass weekCount: 4 for
+// the Planner's extra "Following Week" row.
+export function getThreeWeekRanges(today = new Date(), weekCount = 3) {
   const { start: thisStart, end: thisEnd } = getWeekBounds(today);
-  return [
+  const weeks = [
     { key: 'last', label: 'Last Week', start: addDays(thisStart, -7), end: addDays(thisEnd, -7) },
     { key: 'this', label: 'This Week', start: thisStart, end: thisEnd },
     { key: 'next', label: 'Next Week', start: addDays(thisStart, 7), end: addDays(thisEnd, 7) },
+    { key: 'following', label: 'Following Week', start: addDays(thisStart, 14), end: addDays(thisEnd, 14) },
   ];
+  return weeks.slice(0, weekCount);
 }
 
 // Builds 3 forward-only week ranges (this / next / the week after) relative

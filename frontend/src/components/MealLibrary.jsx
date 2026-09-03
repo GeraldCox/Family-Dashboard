@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { api } from '../api';
 import { getThreeWeekRanges, toDateStr, addDays, DOW_SHORT } from '../utils/weekDates';
 import Icon, { StarIcon } from './Icon';
+import RecipeDetailModal from './RecipeDetailModal';
 
 const SORT_OPTIONS = [
   { id: 'recent', label: 'Most recent' },
@@ -34,7 +35,7 @@ function noteStars(count) {
 function formatNoteDate(dateStr) {
   if (!dateStr) return '';
   const [y, m, d] = dateStr.split('-').map(Number);
-  return new Date(y, m - 1, d).toLocaleDateString([], { month: 'short', day: 'numeric' });
+  return new Date(y, m - 1, d).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' });
 }
 
 export default function MealLibrary() {
@@ -46,15 +47,16 @@ export default function MealLibrary() {
   const [toast, setToast] = useState('');
   const [expandedNotes, setExpandedNotes] = useState({}); // mealName -> bool
   const [notesByMeal, setNotesByMeal] = useState({}); // mealName -> 'loading' | array
+  const [viewingMeal, setViewingMeal] = useState(null); // { name, date } — opens RecipeDetailModal
 
   useEffect(() => { refresh(); }, []);
   useEffect(() => {
-    // Same window the Planner tab shows (through the end of "next week"), but
-    // starting from today instead of the start of "this week" — no point
-    // offering to add a meal to a day that's already passed.
+    // Same window the Planner tab shows (through the end of "following
+    // week"), but starting from today instead of the start of "this week" —
+    // no point offering to add a meal to a day that's already passed.
     const today = new Date();
     const todayMidnight = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-    const rangeEnd = getThreeWeekRanges(today)[2].end;
+    const rangeEnd = getThreeWeekRanges(today, 4)[3].end;
     const dayCount = Math.round((rangeEnd - todayMidnight) / 86400000) + 1;
     api.meals(toDateStr(todayMidnight), toDateStr(rangeEnd)).then(res => {
       const days = Array.from({ length: dayCount }, (_, i) => {
@@ -167,6 +169,18 @@ export default function MealLibrary() {
                   )}
                 </div>
 
+                <div style={s.metaRow}>
+                  <span style={s.lastPlanned}>
+                    {meal.lastPlanned ? `Last planned: ${formatNoteDate(meal.lastPlanned)}` : 'Never planned'}
+                  </span>
+                  <button
+                    style={s.viewRecipeLink}
+                    onClick={() => setViewingMeal({ name: meal.name, date: meal.lastPlanned || toDateStr(new Date()) })}
+                  >
+                    <Icon name="chevron-right" size={13} /> View recipe
+                  </button>
+                </div>
+
                 <div style={s.ratingRow}>
                   {meal.averageRating != null ? (
                     <>
@@ -232,6 +246,16 @@ export default function MealLibrary() {
           })}
         </div>
       )}
+
+      {viewingMeal && (
+        <RecipeDetailModal
+          date={viewingMeal.date}
+          mealName={viewingMeal.name}
+          startExpanded
+          onClose={() => setViewingMeal(null)}
+          onRated={() => refresh()}
+        />
+      )}
     </div>
   );
 }
@@ -278,6 +302,14 @@ const s = {
   cardHead: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' },
   cardTitle: { fontSize: 16, fontWeight: 700, color: 'var(--text-1)' },
   sourceLink: { fontSize: 13, color: 'var(--blue)', textDecoration: 'none', flexShrink: 0, display: 'inline-flex', alignItems: 'center', gap: 5 },
+
+  metaRow: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, marginTop: 4, flexWrap: 'wrap' },
+  lastPlanned: { fontSize: 13, color: 'var(--text-3)' },
+  viewRecipeLink: {
+    border: 'none', background: 'none', cursor: 'pointer', padding: 0,
+    fontSize: 13, fontWeight: 600, color: 'var(--blue)',
+    display: 'inline-flex', alignItems: 'center', gap: 2,
+  },
 
   ratingRow: { display: 'flex', alignItems: 'center', gap: 8, marginTop: 6, flexWrap: 'wrap' },
   stars: { display: 'inline-flex', alignItems: 'center' },

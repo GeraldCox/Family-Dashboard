@@ -2,16 +2,11 @@ import { useState, useEffect, useRef } from 'react';
 import { api } from '../api';
 import { useScreenSize } from '../hooks/useScreenSize';
 import MealLibrary from './MealLibrary';
-import Icon, { StarIcon } from './Icon';
+import Icon from './Icon';
+import RecipeDetailModal from './RecipeDetailModal';
 import { DOW_SHORT, toDateStr, addDays, formatDateRange, isSameDate, getThreeWeekRanges } from '../utils/weekDates';
 
 const MEAL_COLORS = ['#ef4444','#f59e0b','#10b981','#3b82f6','#8b5cf6','#ec4899','#06b6d4'];
-
-function formatNoteDate(dateStr) {
-  if (!dateStr) return '';
-  const [y, m, d] = dateStr.split('-').map(Number);
-  return new Date(y, m - 1, d).toLocaleDateString([], { month: 'short', day: 'numeric' });
-}
 
 const MEALS_SUB_TABS = [
   { id: 'week',    label: 'Planner' },
@@ -51,7 +46,7 @@ function WeekSection({
   const dayDates = Array.from({ length: 7 }, (_, i) => addDays(week.start, i));
 
   return (
-    <div style={s.weekSection}>
+    <div style={s.weekSection} data-week-key={week.key}>
       <div style={s.weekHeading}>{week.label} · {formatDateRange(week.start, week.end)}</div>
       <div style={{ ...s.grid, ...(isMobile ? s.gridMobile : {}) }}>
         {dayDates.map((date, i) => {
@@ -80,7 +75,6 @@ function WeekSection({
               <div style={s.mealContent}>
                 {dayData.meals.length ? (
                   dayData.meals.map((m, j) => {
-                    const mealData = (dayData.mealData || {})[m];
                     const isBeingDragged = dragMeal && dragMeal.date === dateKey && dragMeal.index === j;
                     const isPressed = pressedMeal && pressedMeal.date === dateKey && pressedMeal.index === j;
                     return (
@@ -98,15 +92,6 @@ function WeekSection({
                         onClick={() => onMealClick(dateKey, m, isPast)}
                       >
                         <span style={s.mealPillText}><Icon name="utensils" size={14} style={{ display: 'inline-block', verticalAlign: '-2px', marginRight: 5 }} />{m}</span>
-                        {isPast && mealData?.rated && (
-                          <span style={s.ratedStars} title="Rated">
-                            {(mealData.stars || 0) > 0
-                              ? Array.from({ length: mealData.stars }).map((_, k) => (
-                                  <StarIcon key={k} filled size={12} style={{ color: '#f59e0b' }} />
-                                ))
-                              : '—'}
-                          </span>
-                        )}
                       </div>
                     );
                   })
@@ -149,12 +134,23 @@ function WeekPlanner() {
 
   const today = new Date();
   const todayMidnight = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-  const weeks = getThreeWeekRanges(today);
+  const weeks = getThreeWeekRanges(today, 4);
 
   useEffect(() => {
-    api.meals(toDateStr(weeks[0].start), toDateStr(weeks[2].end)).then(setData).catch(console.error);
+    api.meals(toDateStr(weeks[0].start), toDateStr(weeks[3].end)).then(setData).catch(console.error);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Land on "This Week" (not scrolled all the way to the top, where "Last
+  // Week" starts) so today is immediately visible; scrolling up still
+  // reaches last week for anyone who wants it. Only runs once, on the first
+  // successful load — not on every later data refresh (drags, ratings, etc).
+  const hasAutoScrolledRef = useRef(false);
+  useEffect(() => {
+    if (!data || hasAutoScrolledRef.current) return;
+    hasAutoScrolledRef.current = true;
+    document.querySelector('[data-week-key="this"]')?.scrollIntoView({ block: 'start' });
+  }, [data]);
 
   function handleRated(date, mealName, stars) {
     setData(prev => ({
@@ -326,132 +322,6 @@ function WeekPlanner() {
   );
 }
 
-// ── Recipe detail modal ──────────────────────────────────────────────────────
-
-function RecipeDetailModal({ date, mealName, onClose, onRated }) {
-  const [full, setFull] = useState(undefined); // undefined = loading, null = not found
-  const [stars, setStars] = useState(0);
-  const [note, setNote] = useState('');
-  const [saving, setSaving] = useState(false);
-  const [previousNotes, setPreviousNotes] = useState(null);
-
-  useEffect(() => {
-    api.getFullMeal(mealName).then(setFull).catch(() => setFull(null));
-  }, [mealName]);
-
-  useEffect(() => {
-    api.getMealNotes(mealName).then(res => setPreviousNotes(res.notes || [])).catch(() => setPreviousNotes([]));
-  }, [mealName]);
-
-  async function submitRating() {
-    setSaving(true);
-    try {
-      await api.rateWeeklyMeal(date, mealName, stars, note.trim());
-      onRated(date, mealName, stars);
-      onClose();
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  const ingredients = full?.ingredients || [];
-  const instructions = full?.instructions || [];
-
-  return (
-    <div style={s.overlay} onClick={onClose}>
-      <div style={s.detailModal} onClick={e => e.stopPropagation()}>
-        <div style={s.modalHead}>
-          <div style={s.modalTitle}>{full?.name || mealName}</div>
-          <button style={s.closeBtn} onClick={onClose} aria-label="Close"><Icon name="x" size={18} /></button>
-        </div>
-
-        {full?.sourceUrl && (
-          <a href={full.sourceUrl} target="_blank" rel="noreferrer" style={s.sourceLinkRow}>
-            <Icon name="link" size={15} /> {full.sourceName || 'View source'}
-          </a>
-        )}
-
-        <div style={s.detailSection}>
-          <div style={s.label}>Ingredients</div>
-          {ingredients.length > 0 ? (
-            <ul style={s.ingredientList}>
-              {ingredients.map((ing, i) => (
-                <li key={i} style={s.ingredientItem}>
-                  {[ing.amount, ing.unit, ing.name].filter(Boolean).join(' ')}
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <div style={s.notAvailable}>Not available</div>
-          )}
-        </div>
-
-        <div style={s.detailSection}>
-          <div style={s.label}>Instructions</div>
-          {instructions.length > 0 ? (
-            <div style={s.instructionsList}>
-              {instructions.map(step => (
-                <div key={step.number} style={s.instructionRow}>
-                  <div style={s.instructionNumber}>{step.number}</div>
-                  <div style={s.instructionText}>{step.step}</div>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div style={s.notAvailable}>Not available</div>
-          )}
-        </div>
-
-        <div style={s.ratingSection}>
-          <div style={s.label}>Rate this meal</div>
-          <div style={s.rateStarsRow}>
-            {[1, 2, 3, 4, 5].map(n => (
-              <span
-                key={n}
-                style={s.rateStarIcon}
-                onClick={() => setStars(prev => (prev === n ? 0 : n))}
-                role="button"
-                aria-label={`Rate ${n} star${n > 1 ? 's' : ''}`}
-              >
-                <StarIcon filled={n <= stars} size={30} style={{ color: n <= stars ? '#f59e0b' : 'var(--text-3)' }} />
-              </span>
-            ))}
-          </div>
-
-          <textarea
-            style={s.noteTextarea}
-            rows={3}
-            placeholder="How did it go? Any changes for next time?"
-            value={note}
-            onChange={e => setNote(e.target.value)}
-          />
-          <div style={s.noteHelperText}>Notes help you remember what worked and what to adjust</div>
-
-          {previousNotes && previousNotes.length > 0 && (
-            <div style={s.previousNotesBlock}>
-              <div style={s.previousNotesHeading}>Previous notes:</div>
-              {previousNotes.slice(0, 3).map((n, i) => (
-                <div key={i} style={s.previousNoteItem}>
-                  {formatNoteDate(n.date)} ·{' '}
-                  {Array.from({ length: n.stars || 0 }).map((_, k) => (
-                    <StarIcon key={k} filled size={11} style={{ color: '#f59e0b', display: 'inline-block', verticalAlign: '-1px' }} />
-                  ))} · {n.note}
-                </div>
-              ))}
-            </div>
-          )}
-
-          <button style={s.rateSubmitBtn} onClick={submitRating} disabled={saving}>
-            {saving ? 'Saving…' : 'Submit rating'}
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
 const s = {
   tabWrap: { display: 'flex', flexDirection: 'column', height: '100%' },
   subNav: { display: 'flex', gap: 4, padding: '10px 16px 0 16px', flexShrink: 0 },
@@ -509,16 +379,10 @@ const s = {
   },
   mealPillText: { flex: 1 },
   emptyMeal: { fontSize: 14, color: 'var(--text-3)', fontStyle: 'italic', paddingTop: 4, cursor: 'pointer' },
-  ratedStars: { display: 'inline-flex', alignItems: 'center', gap: 1, flexShrink: 0 },
 
   overlay: {
     position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)',
     display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000,
-  },
-  detailModal: {
-    background: 'var(--surface)', borderRadius: 16, padding: 20,
-    width: 520, maxWidth: '92vw', maxHeight: '86vh', overflowY: 'auto',
-    boxShadow: '0 12px 40px rgba(0,0,0,0.25)',
   },
   noticeModal: {
     background: 'var(--surface)', borderRadius: 16, padding: 20,
@@ -526,49 +390,6 @@ const s = {
     boxShadow: '0 12px 40px rgba(0,0,0,0.25)',
   },
   noticeText: { fontSize: 16, color: 'var(--text-1)', marginBottom: 14, lineHeight: 1.5 },
-
-  modalHead: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 },
-  modalTitle: { fontSize: 18, fontWeight: 700, color: 'var(--text-1)' },
-  closeBtn: { border: 'none', background: 'transparent', cursor: 'pointer', color: 'var(--text-3)', display: 'flex', alignItems: 'center' },
-
-  sourceLinkRow: {
-    display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 14, color: 'var(--blue)', textDecoration: 'none', marginBottom: 14,
-  },
-
-  detailSection: { marginBottom: 18 },
-  label: {
-    display: 'block', fontSize: 13, fontWeight: 700, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 8,
-    fontFamily: 'var(--font-heading)', fontStyle: 'italic',
-  },
-  ingredientList: { margin: 0, paddingLeft: 20, display: 'flex', flexDirection: 'column', gap: 6 },
-  ingredientItem: { fontSize: 15, color: 'var(--text-1)', lineHeight: 1.4 },
-
-  instructionsList: { display: 'flex', flexDirection: 'column', gap: 14 },
-  instructionRow: { display: 'flex', gap: 12, alignItems: 'flex-start' },
-  instructionNumber: {
-    width: 28, height: 28, borderRadius: '50%', background: 'var(--blue)', color: 'white',
-    fontSize: 14, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
-  },
-  instructionText: { fontSize: 15, color: 'var(--text-1)', lineHeight: 1.6, paddingTop: 2 },
-
-  notAvailable: { fontSize: 15, color: 'var(--text-3)', fontStyle: 'italic' },
-
-  ratingSection: { marginTop: 8, paddingTop: 16, borderTop: '0.5px solid var(--border)' },
-  rateStarsRow: { display: 'flex', gap: 8, marginBottom: 14, justifyContent: 'center' },
-  rateStarIcon: { cursor: 'pointer', display: 'flex', transition: 'transform 0.15s' },
-  noteTextarea: {
-    width: '100%', padding: '8px 10px', borderRadius: 8, border: '1px solid var(--border-md)',
-    fontSize: 15, background: 'var(--bg)', resize: 'none', fontFamily: 'inherit', boxSizing: 'border-box',
-  },
-  noteHelperText: { fontSize: 13, color: 'var(--text-3)', marginTop: 5 },
-  previousNotesBlock: {
-    marginTop: 14, paddingTop: 12, borderTop: '0.5px solid var(--border)',
-  },
-  previousNotesHeading: {
-    fontSize: 13, fontWeight: 700, color: 'var(--text-3)', textTransform: 'uppercase',
-    letterSpacing: '0.04em', marginBottom: 6, fontFamily: 'var(--font-heading)', fontStyle: 'italic',
-  },
-  previousNoteItem: { fontSize: 13, color: 'var(--text-3)', lineHeight: 1.5 },
   rateSubmitBtn: {
     width: '100%', marginTop: 12, padding: '9px', borderRadius: 8, border: 'none',
     background: 'var(--blue)', color: 'white', fontSize: 15, fontWeight: 700, cursor: 'pointer',
