@@ -37,6 +37,7 @@ const FILES = {
   googleOAuthConfig: path.join(DATA_DIR, 'google-oauth-config.json'),
   homeschool: path.join(DATA_DIR, 'homeschool.json'),
   mealieSettings: path.join(DATA_DIR, 'mealie-settings.json'),
+  spoonacularSettings: path.join(DATA_DIR, 'spoonacular-settings.json'),
   generalSettings: path.join(DATA_DIR, 'general-settings.json'),
   weatherLocation: path.join(DATA_DIR, 'weather-location.json'),
 };
@@ -303,8 +304,13 @@ function parseRoutineTimeCutoffs(input, fallback) {
 // WEATHER_LAT/WEATHER_LON/WEATHER_LOCATION_LABEL env vars, then NYC.
 const DEFAULT_WEATHER_LOCATION = { lat: null, lon: null, label: '' };
 
-// Get a free key at https://spoonacular.com/food-api
-const SPOONACULAR_API_KEY = process.env.SPOONACULAR_API_KEY || '';
+// Get a free key at https://spoonacular.com/food-api — settable from the
+// Manage UI (stored in spoonacular-settings.json) or the SPOONACULAR_API_KEY
+// env var as a fallback default, same pattern as getMealieConfig() below.
+function getSpoonacularApiKey() {
+  const fileCfg = readJSON(FILES.spoonacularSettings, { apiKey: '' });
+  return fileCfg.apiKey || process.env.SPOONACULAR_API_KEY || '';
+}
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -2124,7 +2130,7 @@ app.get('/api/recipes/search', async (req, res) => {
     const { q } = req.query;
     if (!q) return res.status(400).json({ error: 'Missing query parameter q' });
 
-    const url = `https://api.spoonacular.com/recipes/complexSearch?apiKey=${SPOONACULAR_API_KEY}&query=${encodeURIComponent(q)}&number=5&addRecipeInformation=true&fillIngredients=true&analyzedInstructions=true`;
+    const url = `https://api.spoonacular.com/recipes/complexSearch?apiKey=${getSpoonacularApiKey()}&query=${encodeURIComponent(q)}&number=5&addRecipeInformation=true&fillIngredients=true&analyzedInstructions=true`;
     const r = await fetch(url);
     const data = await r.json();
 
@@ -2195,11 +2201,26 @@ app.post('/api/mealie/settings', (req, res) => {
   res.json({ ok: true, url: next.url, hasToken: !!next.apiToken });
 });
 
+// Spoonacular API key — same masked-token pattern as Mealie's settings above.
+app.get('/api/spoonacular/settings', (req, res) => {
+  res.json({ hasKey: !!getSpoonacularApiKey() });
+});
+
+app.post('/api/spoonacular/settings', (req, res) => {
+  const { apiKey } = req.body;
+  const current = readJSON(FILES.spoonacularSettings, { apiKey: '' });
+  const next = {
+    apiKey: typeof apiKey === 'string' && apiKey.trim() ? apiKey.trim() : current.apiKey,
+  };
+  writeJSON(FILES.spoonacularSettings, next);
+  res.json({ ok: true, hasKey: !!(next.apiKey || process.env.SPOONACULAR_API_KEY) });
+});
+
 // Recipe details (Spoonacular per-recipe information — includes real instructions)
 app.get('/api/recipes/:id/details', async (req, res) => {
   try {
     const { id } = req.params;
-    const url = `https://api.spoonacular.com/recipes/${encodeURIComponent(id)}/information?apiKey=${SPOONACULAR_API_KEY}`;
+    const url = `https://api.spoonacular.com/recipes/${encodeURIComponent(id)}/information?apiKey=${getSpoonacularApiKey()}`;
     const r = await fetch(url);
     const recipe = await r.json();
     if (!r.ok || !recipe || recipe.status === 'failure') {

@@ -58,9 +58,9 @@ Edit `.env` and fill in whatever's relevant to you — everything is optional ex
 | `WEATHER_LAT` / `WEATHER_LON` / `WEATHER_LOCATION_LABEL` | No | Location for the weather widget (defaults to NYC coordinates with no label shown) |
 | `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` / `GOOGLE_REDIRECT_URI` | No | Google OAuth calendar sync — create credentials in the [Google Cloud Console](https://console.cloud.google.com/apis/credentials) |
 | `DASHBOARD_URL` | No | Public URL to redirect to after Google OAuth completes |
-| `SPOONACULAR_API_KEY` | No | Recipe search — free key from [spoonacular.com/food-api](https://spoonacular.com/food-api) |
+| `SPOONACULAR_API_KEY` | No | Primary recipe search/import source — free key from [spoonacular.com/food-api](https://spoonacular.com/food-api) (can also be set per-install from the UI's Meals screen) |
 | `TIDE_BEACHES` | No | JSON array of `{ id, name, station }` — find NOAA station IDs at [tidesandcurrents.noaa.gov/map](https://tidesandcurrents.noaa.gov/map/) |
-| `MEALIE_URL` / `MEALIE_API_TOKEN` | No | Fallback recipe source — a self-hosted [Mealie](https://mealie.io/) instance (can also be set per-install from the UI's Connected Accounts screen) |
+| `MEALIE_URL` / `MEALIE_API_TOKEN` | No | Fallback recipe source — a self-hosted [Mealie](https://mealie.io/) instance (can also be set per-install from the UI's Meals screen) |
 
 ### 2. Deploy
 

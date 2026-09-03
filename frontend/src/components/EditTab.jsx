@@ -1663,6 +1663,7 @@ function MealsEditor({ isMobile }) {
         </div>
       )}
 
+      <SpoonacularSettingsCard isMobile={isMobile} />
       <MealieSettingsCard isMobile={isMobile} />
     </div>
   );
@@ -2563,6 +2564,59 @@ function AccountCalendarsPicker({ accountId, isMobile }) {
       <div style={{ ...s.addRow, marginTop: 10 }}>
         <button style={s.addBtn} onClick={save} disabled={saving}>{saving ? 'Saving…' : 'Save'}</button>
         {saved && <span style={{ color: 'var(--green)', fontSize: 13, fontWeight: 600 }}>Saved</span>}
+      </div>
+    </div>
+  );
+}
+
+function SpoonacularSettingsCard({ isMobile }) {
+  const [settings, setSettings] = useState(null);
+  const [keyDraft, setKeyDraft] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+
+  useEffect(() => {
+    api.getSpoonacularSettings().then(setSettings).catch(console.error);
+  }, []);
+
+  async function save() {
+    setSaving(true);
+    setSaved(false);
+    try {
+      const res = await api.saveSpoonacularSettings(keyDraft.trim());
+      setSettings(res);
+      setKeyDraft('');
+      setSaved(true);
+      setTimeout(() => setSaved(false), 3000);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  if (!settings) return null;
+
+  return (
+    <div style={s.card}>
+      <div style={{ ...s.personName, display: 'flex', alignItems: 'center', gap: 8 }}><Icon name="search" size={18} /> Spoonacular</div>
+      <div style={s.emptySmall}>
+        Primary recipe search/import source. Get a free key at{' '}
+        <a href="https://spoonacular.com/food-api" target="_blank" rel="noreferrer">spoonacular.com/food-api</a>.
+      </div>
+      <div style={{ ...s.addRow, ...(isMobile ? s.addRowMobile : {}), marginTop: 10 }}>
+        <input
+          style={s.nameInput}
+          type="password"
+          placeholder={settings.hasKey ? 'API key saved — enter a new one to replace it' : 'API key'}
+          value={keyDraft}
+          onChange={e => setKeyDraft(e.target.value)}
+        />
+        <button style={s.addBtn} onClick={save} disabled={saving}>{saving ? 'Saving…' : 'Save'}</button>
+      </div>
+      <div style={{ ...s.emptySmall, marginTop: 8, display: 'flex', alignItems: 'center', gap: 6 }}>
+        {settings.hasKey
+          ? <><Icon name="check" size={14} style={{ color: 'var(--green)' }} /> Key configured</>
+          : 'No key saved yet'}
+        {saved && <span style={{ color: 'var(--green)' }}>· Saved</span>}
       </div>
     </div>
   );
