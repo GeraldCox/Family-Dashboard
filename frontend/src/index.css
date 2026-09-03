@@ -13,6 +13,10 @@
      icon's white pill, so it needs its own contrast tuning rather than
      reusing --sidebar-active-text (teal-on-blue barely contrasts here). */
   --sidebar-active-label: #ffffff;
+  /* Time prefix on calendar event pills — dark text reads better than white
+     against these views' light-tinted event backgrounds; dark theme keeps
+     the original white since those backgrounds stay dark either way. */
+  --event-time-text: rgba(0,0,0,0.72);
   --border: rgba(18,76,77,0.08);
   --border-md: rgba(18,76,77,0.14);
   --text-1: #124C4D;
@@ -58,6 +62,7 @@
   --sidebar-active-text: #4BECEE;
   --sidebar-inactive: #6b96a3;
   --sidebar-active-label: #4BECEE;
+  --event-time-text: rgba(255,255,255,0.85);
   --text-1: #e8f4f4;
   --text-2: #8fc4c6;
   --text-3: #4a6b6d;

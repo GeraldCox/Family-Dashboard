@@ -798,7 +798,7 @@ const styles = {
   // text there runs as small as 11px, so this has to undercut that) — white,
   // regular weight, and a size down from the title so it reads as a label,
   // not competing with the event name for attention.
-  pillTime: { fontSize: 10, fontWeight: 400, color: 'rgba(255,255,255,0.85)', flexShrink: 0 },
+  pillTime: { fontSize: 10, fontWeight: 400, color: 'var(--event-time-text)', flexShrink: 0 },
   dotsRow: { display: 'flex', flexWrap: 'wrap', gap: 3, alignItems: 'center' },
   evDot: { width: 6, height: 6, borderRadius: '50%', flexShrink: 0 },
   dotsMore: { fontSize: 9, color: 'var(--text-3)', fontWeight: 600 },
@@ -835,7 +835,7 @@ const dayStyles = {
   // so a short event still shows both — a two-line stack meant a very short
   // block could run out of height before the title ever rendered.
   eventTitle: {},
-  eventTime: { fontSize: 11, fontWeight: 400, color: 'rgba(255,255,255,0.85)', marginRight: 5 },
+  eventTime: { fontSize: 11, fontWeight: 400, color: 'var(--event-time-text)', marginRight: 5 },
 };
 
 const weekStyles = {
