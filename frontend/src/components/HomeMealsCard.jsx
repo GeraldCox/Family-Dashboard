@@ -85,16 +85,18 @@ const s = {
   card: {
     background: 'var(--surface)', borderRadius: 'var(--radius-xl)',
     border: '0.5px solid var(--border)', boxShadow: 'var(--shadow-sm)',
-    flexShrink: 0, height: 132, display: 'flex', flexDirection: 'column', overflow: 'hidden',
+    // Sized to content (not a fixed height) so a light week takes only the
+    // room it needs; maxHeight caps it and lets body scroll on a busy one.
+    flexShrink: 0, maxHeight: 140, display: 'flex', flexDirection: 'column', overflow: 'hidden',
   },
   header: {
     display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-    padding: '18px 14px 12px', flexShrink: 0,
+    padding: '14px 14px 10px', flexShrink: 0,
   },
   title: { fontSize: 15, fontWeight: 700, color: 'var(--text-1)', fontFamily: 'var(--font-heading)', cursor: 'pointer' },
   range: { fontSize: 12, fontWeight: 600, color: 'var(--text-3)' },
 
-  body: { flex: 1, minHeight: 0, overflowY: 'auto' },
+  body: { flexShrink: 1, minHeight: 0, overflowY: 'auto' },
   // Same column structure as the calendar's week view (WeekGrid in
   // Calendar.jsx): a single borderless grid divided by borderRight lines
   // between columns, rather than separate rounded day cards with gaps.

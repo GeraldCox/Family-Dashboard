@@ -207,7 +207,9 @@ const s = {
     gridTemplateColumns: '1fr', gridTemplateRows: '1fr 360px',
     gap: 9, padding: 7,
   },
-  calSide: { display: 'flex', flexDirection: 'column', gap: 13, overflow: 'hidden', minHeight: 0 },
+  // 8px to match the divider column's width — the same visual gap the
+  // calendar/panel split uses.
+  calSide: { display: 'flex', flexDirection: 'column', gap: 8, overflow: 'hidden', minHeight: 0 },
   calBody: { flex: 1, minHeight: 0, overflow: 'hidden' },
   // Visible grip stays the actual 8px grid column width, but the div's own
   // hit area (where onMouseDown/onTouchStart fire) is widened with negative

@@ -741,7 +741,7 @@ function WeekGrid({ start, numDays, eventsForDate, today, onChanged }) {
                   <div style={{ ...weekStyles.dow, ...(isToday ? weekStyles.dowToday : {}) }}>{DAYS[d.getDay()]}</div>
                   <div style={{ ...weekStyles.dayNum, ...(isToday ? weekStyles.dayNumToday : {}) }}>{d.getDate()}</div>
                 </div>
-                <div style={weekStyles.pills}>
+                <div style={weekStyles.pills} className="no-scrollbar">
                   {dayEvents.slice(0, maxVisible).map((ev, j) => (
                     <div key={j} style={{ ...weekStyles.pill, background: eventBackground(ev), color: ev.color, borderLeft: `3px solid ${ev.color}` }}>
                       {!ev.allDay && ev.start && ev.start.includes('T') && (
@@ -840,10 +840,15 @@ const dayStyles = {
 
 const weekStyles = {
   wrap: { flex: 1, display: 'flex', flexDirection: 'column', overflowY: 'auto', gap: 1 },
-  row: { display: 'grid', gridTemplateColumns: 'repeat(7,1fr)', flex: 1, minHeight: 160 },
+  // gridAutoRows:'1fr' (not the 'auto' default) makes the row's single
+  // implicit track exactly fill this container's own resolved height,
+  // instead of sizing to its tallest column's content — which is what let
+  // a busy day's events grow past the visible area instead of scrolling.
+  row: { display: 'grid', gridTemplateColumns: 'repeat(7,1fr)', gridAutoRows: '1fr', flex: 1, minHeight: 160 },
   col: {
     borderRight: '1px solid var(--border)', borderBottom: '1px solid var(--border)',
     padding: '8px 6px', cursor: 'pointer', overflow: 'hidden', display: 'flex', flexDirection: 'column', gap: 6,
+    minHeight: 0,
   },
   // A flat var(--accent) wash was too saturated at this size (a whole day
   // column, not a small badge) — it fought with the event pills' own tinted
@@ -851,18 +856,26 @@ const weekStyles = {
   // the surface color keeps the "this is today" cue without drowning out
   // whatever's inside the column.
   colToday: { background: 'color-mix(in srgb, var(--accent) 22%, var(--surface))' },
-  colHead: { display: 'flex', alignItems: 'center', gap: 6 },
+  colHead: { display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 },
   dow: { fontSize: 12, fontWeight: 700, color: 'var(--text-3)', letterSpacing: '0.05em' },
   dowToday: { color: 'var(--text-1)' },
   dayNum: { fontSize: 15, fontWeight: 600, color: 'var(--text-1)', width: 24, height: 24, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '50%' },
   dayNumToday: { background: 'var(--accent)', color: 'white' },
-  pills: { display: 'flex', flexDirection: 'column', gap: 3 },
+  // flex:1 + minHeight:0 lets this scroll within whatever room the column
+  // has left (rather than the day's events getting hard-clipped by col's
+  // own overflow:hidden when there isn't room to show them all); the
+  // no-scrollbar class keeps that scroll invisible across 7 narrow columns.
+  pills: { display: 'flex', flexDirection: 'column', gap: 3, flex: 1, minHeight: 0, overflowY: 'auto' },
   pill: {
     fontSize: 11, fontWeight: 500, padding: '3px 6px', borderRadius: 4, lineHeight: 1.3,
     whiteSpace: 'normal', overflow: 'hidden', textOverflow: 'ellipsis',
     display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical',
+    // Without this, flex's default shrink-to-fit squeezed every pill down
+    // instead of letting the list overflow (and scroll) when it's taller
+    // than the column has room for.
+    flexShrink: 0,
   },
-  more: { fontSize: 12, color: 'var(--text-3)', fontWeight: 600 },
+  more: { fontSize: 12, color: 'var(--text-3)', fontWeight: 600, flexShrink: 0 },
   moreToday: { color: 'white' },
 };
 
