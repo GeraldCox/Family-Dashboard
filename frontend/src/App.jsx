@@ -242,6 +242,8 @@ export default function App() {
               onNavigate={setTab}
               hiddenPanels={generalSettings.hiddenHomePanels}
               navLabels={generalSettings.navLabels}
+              showMealsOnHome={generalSettings.showMealsOnHome}
+              hideRecipeSourceLinks={generalSettings.hideRecipeSourceLinks}
             />
           )}
 

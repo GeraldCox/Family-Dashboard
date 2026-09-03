@@ -1283,6 +1283,8 @@ function MealsEditor({ isMobile, onGeneralSettingsSaved }) {
   const [library, setLibrary] = useState([]);
   const [hideRecipeSourceLinks, setHideRecipeSourceLinks] = useState(false);
   const [savingSourceLinkSetting, setSavingSourceLinkSetting] = useState(false);
+  const [showMealsOnHome, setShowMealsOnHome] = useState(false);
+  const [savingHomeSetting, setSavingHomeSetting] = useState(false);
   const today = new Date();
   const todayMidnight = new Date(today.getFullYear(), today.getMonth(), today.getDate());
   const weeks = getThreeWeekRanges(today);
@@ -1305,7 +1307,10 @@ function MealsEditor({ isMobile, onGeneralSettingsSaved }) {
   }, []);
   useEffect(() => { refreshLibrary(); }, []);
   useEffect(() => {
-    api.getGeneralSettings().then(res => setHideRecipeSourceLinks(!!res.hideRecipeSourceLinks)).catch(console.error);
+    api.getGeneralSettings().then(res => {
+      setHideRecipeSourceLinks(!!res.hideRecipeSourceLinks);
+      setShowMealsOnHome(!!res.showMealsOnHome);
+    }).catch(console.error);
   }, []);
 
   function refreshLibrary() {
@@ -1321,6 +1326,18 @@ function MealsEditor({ isMobile, onGeneralSettingsSaved }) {
       onGeneralSettingsSaved?.(res.settings);
     } finally {
       setSavingSourceLinkSetting(false);
+    }
+  }
+
+  async function toggleShowMealsOnHome() {
+    const next = !showMealsOnHome;
+    setShowMealsOnHome(next);
+    setSavingHomeSetting(true);
+    try {
+      const res = await api.saveGeneralSettings({ showMealsOnHome: next });
+      onGeneralSettingsSaved?.(res.settings);
+    } finally {
+      setSavingHomeSetting(false);
     }
   }
 
@@ -1696,6 +1713,25 @@ function MealsEditor({ isMobile, onGeneralSettingsSaved }) {
           </div>
         </div>
       )}
+
+      <div style={s.card}>
+        <div style={{ ...s.personName, display: 'flex', alignItems: 'center', gap: 8 }}>
+          <Icon name="home" size={18} /> Home Page
+        </div>
+        <div style={{ ...s.emptySmall, marginBottom: 10 }}>Show this week's meals as a card below the calendar on Home.</div>
+        <div style={s.list}>
+          <label style={{ ...s.row, cursor: 'pointer', opacity: savingHomeSetting ? 0.6 : 1 }}>
+            <span style={s.rowName}>Show Meals on Home page</span>
+            <input
+              type="checkbox"
+              checked={showMealsOnHome}
+              onChange={toggleShowMealsOnHome}
+              disabled={savingHomeSetting}
+              style={s.toggleCheckbox}
+            />
+          </label>
+        </div>
+      </div>
 
       <div style={s.card}>
         <div style={{ ...s.personName, display: 'flex', alignItems: 'center', gap: 8 }}>

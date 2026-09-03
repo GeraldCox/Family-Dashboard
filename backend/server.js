@@ -272,7 +272,7 @@ const HOME_PANEL_IDS = ['chores', 'routines', 'tasks'];
 // flag an incomplete routine as overdue and to auto-collapse a completed one.
 const DEFAULT_ROUTINE_TIME_CUTOFFS = { morning: '11:00', afternoon: '17:00', evening: '21:00', bedtime: '23:59' };
 const VALID_CALENDAR_VIEWS = ['day', 'week', '2week', 'month'];
-const DEFAULT_GENERAL_SETTINGS = { hiddenNavItems: [], hiddenHomePanels: [], navLabels: {}, countdownHideAfterDays: 1, routineTimeCutoffs: DEFAULT_ROUTINE_TIME_CUTOFFS, homeCalendarView: 'month', hideRecipeSourceLinks: false };
+const DEFAULT_GENERAL_SETTINGS = { hiddenNavItems: [], hiddenHomePanels: [], navLabels: {}, countdownHideAfterDays: 1, routineTimeCutoffs: DEFAULT_ROUTINE_TIME_CUTOFFS, homeCalendarView: 'month', hideRecipeSourceLinks: false, showMealsOnHome: false };
 const HHMM_RE = /^([01]\d|2[0-3]):[0-5]\d$/;
 
 // Keeps only entries whose key is a real nav item and whose value is a
@@ -2837,7 +2837,7 @@ app.get('/api/settings/general', (req, res) => {
 
 app.post('/api/settings/general', (req, res) => {
   const current = readJSON(FILES.generalSettings, DEFAULT_GENERAL_SETTINGS);
-  const { hiddenNavItems, hiddenHomePanels, navLabels, countdownHideAfterDays, routineTimeCutoffs, homeCalendarView, hideRecipeSourceLinks } = req.body;
+  const { hiddenNavItems, hiddenHomePanels, navLabels, countdownHideAfterDays, routineTimeCutoffs, homeCalendarView, hideRecipeSourceLinks, showMealsOnHome } = req.body;
   const parsedHideAfterDays = Number(countdownHideAfterDays);
   const settings = {
     hiddenNavItems: Array.isArray(hiddenNavItems)
@@ -2859,6 +2859,9 @@ app.post('/api/settings/general', (req, res) => {
     hideRecipeSourceLinks: hideRecipeSourceLinks !== undefined
       ? !!hideRecipeSourceLinks
       : (current.hideRecipeSourceLinks || false),
+    showMealsOnHome: showMealsOnHome !== undefined
+      ? !!showMealsOnHome
+      : (current.showMealsOnHome || false),
   };
   writeJSON(FILES.generalSettings, settings);
   res.json({ ok: true, settings });

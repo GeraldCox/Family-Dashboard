@@ -3,6 +3,7 @@ import Calendar from './Calendar';
 import Routines from './Routines';
 import Tasks from './Tasks';
 import Chores from './Chores';
+import HomeMealsCard from './HomeMealsCard';
 import { useScreenSize } from '../hooks/useScreenSize';
 
 const PANELS = ['chores', 'routines', 'tasks'];
@@ -23,7 +24,7 @@ function loadPanelWidth() {
   return DEFAULT_PANEL_WIDTH;
 }
 
-export default function HomeTab({ view, filters, onNavigate, hiddenPanels = [], navLabels = {} }) {
+export default function HomeTab({ view, filters, onNavigate, hiddenPanels = [], navLabels = {}, showMealsOnHome = false, hideRecipeSourceLinks }) {
   const [panelIndex, setPanelIndex] = useState(0);
   const [panelWidth, setPanelWidth] = useState(loadPanelWidth);
   const touchStartX = useRef(null);
@@ -129,7 +130,12 @@ export default function HomeTab({ view, filters, onNavigate, hiddenPanels = [], 
         }}
       >
         <div style={s.calSide}>
-          <Calendar view={view} filters={filters} showLegend />
+          <div style={s.calBody}>
+            <Calendar view={view} filters={filters} showLegend />
+          </div>
+          {showMealsOnHome && (
+            <HomeMealsCard onNavigate={onNavigate} hideRecipeSourceLinks={hideRecipeSourceLinks} />
+          )}
         </div>
 
         {!isMobile && (
@@ -201,7 +207,8 @@ const s = {
     gridTemplateColumns: '1fr', gridTemplateRows: '1fr 360px',
     gap: 9, padding: 7,
   },
-  calSide: { overflow: 'hidden', minHeight: 0 },
+  calSide: { display: 'flex', flexDirection: 'column', gap: 13, overflow: 'hidden', minHeight: 0 },
+  calBody: { flex: 1, minHeight: 0, overflow: 'hidden' },
   // Visible grip stays the actual 8px grid column width, but the div's own
   // hit area (where onMouseDown/onTouchStart fire) is widened with negative
   // margins bleeding into the calendar/panel on each side — much easier to
