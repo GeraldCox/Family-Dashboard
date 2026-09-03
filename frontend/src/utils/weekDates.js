@@ -42,13 +42,14 @@ function ordinalSuffix(day) {
 
 // "Tuesday, September 1st" — same long weekday/month format used across the
 // app's full-date headers, with an ordinal suffix appended to the day since
-// toLocaleDateString has no built-in way to produce one.
-export function formatLongDateOrdinal(date, { weekday = true, year = false } = {}) {
+// toLocaleDateString has no built-in way to produce one. Pass month: 'short'
+// for "Tuesday, Sep 1st".
+export function formatLongDateOrdinal(date, { weekday = true, year = false, month = 'long' } = {}) {
   const parts = [];
   if (weekday) parts.push(date.toLocaleDateString([], { weekday: 'long' }));
-  const month = date.toLocaleDateString([], { month: 'long' });
+  const monthName = date.toLocaleDateString([], { month });
   const day = date.getDate();
-  let monthDay = `${month} ${day}${ordinalSuffix(day)}`;
+  let monthDay = `${monthName} ${day}${ordinalSuffix(day)}`;
   if (year) monthDay += `, ${date.getFullYear()}`;
   parts.push(monthDay);
   return parts.join(', ');

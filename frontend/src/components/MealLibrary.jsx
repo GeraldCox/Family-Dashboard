@@ -49,12 +49,18 @@ export default function MealLibrary() {
 
   useEffect(() => { refresh(); }, []);
   useEffect(() => {
-    const thisWeek = getThreeWeekRanges(new Date())[1];
-    api.meals(toDateStr(thisWeek.start), toDateStr(thisWeek.end)).then(res => {
-      const days = Array.from({ length: 7 }, (_, i) => {
-        const date = addDays(thisWeek.start, i);
+    // Same window the Planner tab shows (through the end of "next week"), but
+    // starting from today instead of the start of "this week" — no point
+    // offering to add a meal to a day that's already passed.
+    const today = new Date();
+    const todayMidnight = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+    const rangeEnd = getThreeWeekRanges(today)[2].end;
+    const dayCount = Math.round((rangeEnd - todayMidnight) / 86400000) + 1;
+    api.meals(toDateStr(todayMidnight), toDateStr(rangeEnd)).then(res => {
+      const days = Array.from({ length: dayCount }, (_, i) => {
+        const date = addDays(todayMidnight, i);
         const dateKey = toDateStr(date);
-        return { dateKey, label: `${DOW_SHORT[i]} ${date.getDate()}`, meals: res.days[dateKey]?.meals || [] };
+        return { dateKey, label: `${DOW_SHORT[date.getDay()]} ${date.getDate()}`, meals: res.days[dateKey]?.meals || [] };
       });
       setWeekDays(days);
     }).catch(console.error);
@@ -205,13 +211,16 @@ export default function MealLibrary() {
                       {(weekDays || []).map(d => (
                         <button key={d.dateKey} style={s.dayPickerBtn} onClick={() => addToDay(meal, d.dateKey)}>
                           {d.label}
+                          {d.meals.length > 0
+                            ? <Icon name="check-square" size={13} style={s.dayPickerCheckIcon} />
+                            : <span style={s.dayPickerCheckEmpty} />}
                         </button>
                       ))}
                       <button style={s.dayPickerCancel} onClick={() => setAddingFor(null)} aria-label="Cancel"><Icon name="x" size={15} /></button>
                     </div>
                   ) : (
                     <button style={s.addWeekBtn} onClick={() => setAddingFor(meal.name)}>
-                      + Add to this week
+                      + Add to plan
                     </button>
                   )}
                   <button style={s.deleteBtn} onClick={() => removeMeal(meal.name)} title="Delete from library" aria-label="Delete from library">
@@ -303,9 +312,16 @@ const s = {
     padding: 4, color: 'var(--text-3)', marginLeft: 'auto', display: 'flex', alignItems: 'center',
   },
   dayPicker: { display: 'flex', gap: 4, flexWrap: 'wrap', alignItems: 'center' },
+  // Matches the day pills in Manage → Meals (dayPill/dayPillCheckIcon/dayPillCheckEmpty).
   dayPickerBtn: {
-    padding: '6px 10px', borderRadius: 8, border: '0.5px solid var(--border)',
-    background: 'var(--bg)', color: 'var(--text-1)', fontSize: 13, fontWeight: 700, cursor: 'pointer',
+    display: 'inline-flex', alignItems: 'center', gap: 5,
+    padding: '8px 16px', borderRadius: 20, fontSize: 14, fontWeight: 700,
+    color: 'var(--text-2)', background: 'var(--surface)', border: '0.5px solid var(--border)',
+    cursor: 'pointer',
+  },
+  dayPickerCheckIcon: { color: 'var(--green)', flexShrink: 0 },
+  dayPickerCheckEmpty: {
+    width: 13, height: 13, borderRadius: 3, border: '1.5px solid currentColor', opacity: 0.4, flexShrink: 0,
   },
   dayPickerCancel: {
     width: 26, height: 26, borderRadius: '50%', display: 'flex', alignItems: 'center',

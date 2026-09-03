@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { api } from '../api';
 import { useScreenSize } from '../hooks/useScreenSize';
 import { daysUntil } from './CountdownWidget';
-import { DOW_SHORT, DOW_LONG, toDateStr, parseDateStr, addDays, formatDateRange, isSameDate, getThreeWeekRanges } from '../utils/weekDates';
+import { DOW_SHORT, DOW_LONG, toDateStr, parseDateStr, addDays, formatDateRange, isSameDate, getThreeWeekRanges, formatLongDateOrdinal } from '../utils/weekDates';
 import Icon from './Icon';
 import Avatar from './Avatar';
 import AvatarCropModal from './AvatarCropModal';
@@ -1481,7 +1481,7 @@ function MealsEditor({ isMobile }) {
 
   const day = data.days[selectedDate] || { meals: [] };
   const selectedDateObj = parseDateStr(selectedDate);
-  const selectedLabel = `${DOW_LONG[selectedDateObj.getDay()]}, ${selectedDateObj.toLocaleDateString([], { month: 'short', day: 'numeric' })}`;
+  const selectedLabel = formatLongDateOrdinal(selectedDateObj, { month: 'short' });
 
   return (
     <div>
@@ -1492,7 +1492,9 @@ function MealsEditor({ isMobile }) {
           <div key={week.key} style={s.weekBlock}>
             <button style={s.weekToggleBtn} onClick={() => toggleWeek(week.key)}>
               <span>{week.label} · {formatDateRange(week.start, week.end)}</span>
-              <span>{isExpanded ? '▲' : '▼'}</span>
+              <span style={{ ...s.weekToggleChevron, transform: isExpanded ? 'rotate(90deg)' : 'rotate(0deg)' }}>
+                <Icon name="chevron-right" size={16} />
+              </span>
             </button>
             {isExpanded && (
               <div style={{ ...s.daySelectorRow, ...(isMobile ? s.daySelectorRowMobile : {}) }}>
@@ -1500,6 +1502,7 @@ function MealsEditor({ isMobile }) {
                   const dateKey = toDateStr(date);
                   const isSelected = dateKey === selectedDate;
                   const isToday = isSameDate(date, todayMidnight);
+                  const hasMeals = (data.days[dateKey]?.meals || []).length > 0;
                   return (
                     <button
                       key={dateKey}
@@ -1511,6 +1514,9 @@ function MealsEditor({ isMobile }) {
                       onClick={() => selectDay(dateKey)}
                     >
                       {DOW_SHORT[date.getDay()]} {date.getDate()}
+                      {hasMeals
+                        ? <Icon name="check-square" size={13} style={{ ...s.dayPillCheckIcon, ...(isSelected ? s.dayPillCheckIconActive : {}) }} />
+                        : <span style={s.dayPillCheckEmpty} />}
                     </button>
                   );
                 })}
@@ -2912,7 +2918,7 @@ const s = {
   },
   subNavTab: {
     padding: '9px 18px', fontSize: 15, fontWeight: 500,
-    color: 'var(--text-2)', background: 'var(--surface)',
+    color: 'var(--blue)', background: 'var(--bg)',
     border: '0.5px solid var(--border)', borderBottom: 'none',
     borderRadius: '10px 10px 0 0', cursor: 'pointer',
     fontFamily: 'inherit', whiteSpace: 'nowrap', flexShrink: 0,
@@ -2920,8 +2926,10 @@ const s = {
   subNavTabMobile: {
     padding: '8px 12px', fontSize: 14,
   },
+  // The active tab matches the content panel below it (var(--surface)) so it
+  // visually merges with its own content instead of standing apart from it.
   subNavActive: {
-    color: 'var(--blue)', background: 'var(--bg)',
+    color: 'var(--text-2)', background: 'var(--surface)',
   },
   subNavFade: {
     position: 'absolute', top: 0, bottom: 0, width: 28, pointerEvents: 'none',
@@ -3126,16 +3134,31 @@ const s = {
     cursor: 'pointer', textTransform: 'uppercase', letterSpacing: '0.04em',
     fontFamily: 'var(--font-heading)', fontStyle: 'italic', marginBottom: 8,
   },
+  // Same chevron-rotate treatment as the Home panel's collapsible cards.
+  weekToggleChevron: {
+    color: 'var(--text-3)', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center',
+    transition: 'transform 0.2s ease',
+  },
 
   daySelectorRow: { display: 'flex', gap: 6, marginBottom: 16, flexWrap: 'wrap' },
   daySelectorRowMobile: { gap: 4 },
   dayPill: {
+    display: 'inline-flex', alignItems: 'center', gap: 5,
     padding: '8px 16px', borderRadius: 20, fontSize: 14, fontWeight: 700,
     color: 'var(--text-2)', background: 'var(--surface)', border: '0.5px solid var(--border)',
     cursor: 'pointer',
   },
-  dayPillToday: { borderColor: 'var(--blue)', color: 'var(--blue)' },
-  dayPillActive: { color: 'white', background: 'var(--blue)', borderColor: 'var(--blue)' },
+  dayPillToday: { border: '0.5px solid var(--blue)', color: 'var(--blue)' },
+  dayPillActive: { color: 'white', background: 'var(--blue)', border: '0.5px solid var(--blue)' },
+  // Marks whether a day has meals planned, independent of selected/today
+  // styling (which both use blue) so it reads clearly in every state.
+  dayPillCheckIcon: { color: 'var(--green)', flexShrink: 0 },
+  // The selected pill has a solid blue background — green loses contrast
+  // there, so switch to white (matching the pill's own selected text color).
+  dayPillCheckIconActive: { color: 'white' },
+  dayPillCheckEmpty: {
+    width: 13, height: 13, borderRadius: 3, border: '1.5px solid currentColor', opacity: 0.4, flexShrink: 0,
+  },
 
   currentMeals: { display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 16 },
   currentPill: {
