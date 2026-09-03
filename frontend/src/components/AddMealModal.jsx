@@ -69,6 +69,11 @@ export default function AddMealModal({ date, dateLabel, onClose, onAdd }) {
           )}
           {library && filtered.map(meal => (
             <button key={meal.id} style={s.row} onClick={() => handleAdd(meal.name)}>
+              {meal.image ? (
+                <img src={meal.image} alt="" style={s.rowThumb} />
+              ) : (
+                <div style={s.rowThumbPlaceholder}><Icon name="utensils" size={16} style={{ color: 'var(--text-3)' }} /></div>
+              )}
               <div style={s.rowMain}>
                 <div style={s.rowName}>{meal.name}</div>
                 <div style={s.rowMeta}>
@@ -131,7 +136,12 @@ const s = {
     padding: '10px 12px', borderRadius: 10, border: 'none', background: 'none',
     cursor: 'pointer', textAlign: 'left', fontFamily: 'inherit', boxSizing: 'border-box',
   },
-  rowMain: { minWidth: 0 },
+  rowThumb: { width: 40, height: 40, borderRadius: 8, objectFit: 'cover', flexShrink: 0 },
+  rowThumbPlaceholder: {
+    width: 40, height: 40, borderRadius: 8, flexShrink: 0, background: 'var(--bg)',
+    border: '0.5px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center',
+  },
+  rowMain: { flex: 1, minWidth: 0 },
   rowName: { fontSize: 15, fontWeight: 600, color: 'var(--text-1)' },
   rowMeta: { display: 'flex', alignItems: 'center', gap: 10, marginTop: 2, fontSize: 12, color: 'var(--text-3)' },
   rowRating: { display: 'inline-flex', alignItems: 'center', gap: 3, fontWeight: 600, color: 'var(--text-2)' },

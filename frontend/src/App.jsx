@@ -277,7 +277,7 @@ export default function App() {
           {tab === 'meals' && (
             <div style={{ ...s.paneOuter, ...(isMobile ? s.paneOuterMobile : {}) }}>
               <div style={{ ...s.paneLayout, ...(isMobile ? s.paneLayoutMobile : {}) }}>
-                <Meals />
+                <Meals hideRecipeSourceLinks={generalSettings.hideRecipeSourceLinks} />
               </div>
             </div>
           )}

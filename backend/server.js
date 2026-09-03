@@ -272,7 +272,7 @@ const HOME_PANEL_IDS = ['chores', 'routines', 'tasks'];
 // flag an incomplete routine as overdue and to auto-collapse a completed one.
 const DEFAULT_ROUTINE_TIME_CUTOFFS = { morning: '11:00', afternoon: '17:00', evening: '21:00', bedtime: '23:59' };
 const VALID_CALENDAR_VIEWS = ['day', 'week', '2week', 'month'];
-const DEFAULT_GENERAL_SETTINGS = { hiddenNavItems: [], hiddenHomePanels: [], navLabels: {}, countdownHideAfterDays: 1, routineTimeCutoffs: DEFAULT_ROUTINE_TIME_CUTOFFS, homeCalendarView: 'month' };
+const DEFAULT_GENERAL_SETTINGS = { hiddenNavItems: [], hiddenHomePanels: [], navLabels: {}, countdownHideAfterDays: 1, routineTimeCutoffs: DEFAULT_ROUTINE_TIME_CUTOFFS, homeCalendarView: 'month', hideRecipeSourceLinks: false };
 const HHMM_RE = /^([01]\d|2[0-3]):[0-5]\d$/;
 
 // Keeps only entries whose key is a real nav item and whose value is a
@@ -2254,6 +2254,16 @@ app.get('/api/recipes/:id/details', async (req, res) => {
 });
 
 // Recipe scrape (JSON-LD, with a Mealie fallback when the site has no usable schema)
+// schema.org's `image` field varies by publisher: a plain URL string, an array
+// of URL strings, an ImageObject ({ url: ... }), or an array of those.
+function extractImageUrl(image) {
+  if (!image) return '';
+  if (typeof image === 'string') return image;
+  if (Array.isArray(image)) return extractImageUrl(image[0]);
+  if (typeof image === 'object' && image.url) return image.url;
+  return '';
+}
+
 app.get('/api/recipes/scrape', async (req, res) => {
   const { url } = req.query;
   if (!url) return res.status(400).json({ error: 'Missing url parameter' });
@@ -2261,6 +2271,7 @@ app.get('/api/recipes/scrape', async (req, res) => {
   let title = 'Recipe';
   let ingredients = [];
   let instructions = [];
+  let image = '';
 
   try {
     const r = await fetch(url, { headers: { 'User-Agent': 'Mozilla/5.0 (compatible; FamilyDashboard/1.0)' } });
@@ -2283,6 +2294,7 @@ app.get('/api/recipes/scrape', async (req, res) => {
         if (Array.isArray(item.recipeIngredient)) ingredients = item.recipeIngredient;
         else if (Array.isArray(item.ingredients)) ingredients = item.ingredients;
         try { instructions = parseSchemaInstructions(item.recipeInstructions); } catch { instructions = []; }
+        if (item.image) image = extractImageUrl(item.image);
         break;
       }
       if (ingredients.length || instructions.length) break;
@@ -2310,7 +2322,7 @@ app.get('/api/recipes/scrape', async (req, res) => {
     });
   }
 
-  res.json({ title, ingredients, instructions });
+  res.json({ title, ingredients, instructions, image });
 });
 
 // Meal library
@@ -2335,7 +2347,7 @@ app.get('/api/meal-library', (req, res) => {
 });
 
 app.post('/api/meal-library/save', (req, res) => {
-  const { name, sourceUrl, sourceName, ingredients, instructions } = req.body;
+  const { name, image, sourceUrl, sourceName, ingredients, instructions } = req.body;
   if (!name) return res.status(400).json({ error: 'Missing name' });
 
   const data = readJSON(FILES.mealLibrary, { meals: [] });
@@ -2343,6 +2355,9 @@ app.post('/api/meal-library/save', (req, res) => {
   const meal = {
     id: existing ? existing.id : `m${Date.now()}`,
     name,
+    // Keep whatever image is already saved if this particular save (e.g. a
+    // Mealie result, which doesn't expose one) doesn't carry one.
+    image: image || (existing ? existing.image || '' : ''),
     sourceUrl: sourceUrl || '',
     sourceName: sourceName || '',
     ingredients: ingredients || [],
@@ -2822,7 +2837,7 @@ app.get('/api/settings/general', (req, res) => {
 
 app.post('/api/settings/general', (req, res) => {
   const current = readJSON(FILES.generalSettings, DEFAULT_GENERAL_SETTINGS);
-  const { hiddenNavItems, hiddenHomePanels, navLabels, countdownHideAfterDays, routineTimeCutoffs, homeCalendarView } = req.body;
+  const { hiddenNavItems, hiddenHomePanels, navLabels, countdownHideAfterDays, routineTimeCutoffs, homeCalendarView, hideRecipeSourceLinks } = req.body;
   const parsedHideAfterDays = Number(countdownHideAfterDays);
   const settings = {
     hiddenNavItems: Array.isArray(hiddenNavItems)
@@ -2841,6 +2856,9 @@ app.post('/api/settings/general', (req, res) => {
     homeCalendarView: VALID_CALENDAR_VIEWS.includes(homeCalendarView)
       ? homeCalendarView
       : (current.homeCalendarView || 'month'),
+    hideRecipeSourceLinks: hideRecipeSourceLinks !== undefined
+      ? !!hideRecipeSourceLinks
+      : (current.hideRecipeSourceLinks || false),
   };
   writeJSON(FILES.generalSettings, settings);
   res.json({ ok: true, settings });

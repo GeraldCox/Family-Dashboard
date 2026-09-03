@@ -46,7 +46,7 @@ export default function EditTab({ onPreviewScreensaver, onScreensaverSettingsSav
         {subTab === 'general' && <GeneralEditor isMobile={isMobile} onGeneralSettingsSaved={onGeneralSettingsSaved} />}
         {subTab === 'chores' && <ChoresEditor isMobile={isMobile} />}
         {subTab === 'routines' && <RoutinesEditor isMobile={isMobile} />}
-        {subTab === 'meals' && <MealsEditor isMobile={isMobile} />}
+        {subTab === 'meals' && <MealsEditor isMobile={isMobile} onGeneralSettingsSaved={onGeneralSettingsSaved} />}
         {subTab === 'workouts' && <WorkoutsEditor isMobile={isMobile} />}
         {subTab === 'people' && <PeopleEditor isMobile={isMobile} />}
         {subTab === 'countdowns' && <CountdownsEditor isMobile={isMobile} />}
@@ -1263,7 +1263,11 @@ function RecipeResultCard({ image, title, sourceName, ingredients, onSelect, dis
   const preview = (ingredients || []).slice(0, 5).map(ing => ing.name).filter(Boolean);
   return (
     <div style={s.recipeResultCard}>
-      {image && <img src={image} alt={title} style={s.recipeResultImg} />}
+      {image ? (
+        <img src={image} alt={title} style={s.recipeResultImg} />
+      ) : (
+        <div style={s.recipeResultImgPlaceholder}><Icon name="utensils" size={18} style={{ color: 'var(--text-3)' }} /></div>
+      )}
       <div style={s.recipeResultInfo}>
         <div style={s.rowName}>{title}</div>
         {sourceName && <div style={s.emptySmall}>{sourceName}</div>}
@@ -1274,9 +1278,11 @@ function RecipeResultCard({ image, title, sourceName, ingredients, onSelect, dis
   );
 }
 
-function MealsEditor({ isMobile }) {
+function MealsEditor({ isMobile, onGeneralSettingsSaved }) {
   const [data, setData] = useState(null);
   const [library, setLibrary] = useState([]);
+  const [hideRecipeSourceLinks, setHideRecipeSourceLinks] = useState(false);
+  const [savingSourceLinkSetting, setSavingSourceLinkSetting] = useState(false);
   const today = new Date();
   const todayMidnight = new Date(today.getFullYear(), today.getMonth(), today.getDate());
   const weeks = getThreeWeekRanges(today);
@@ -1298,9 +1304,24 @@ function MealsEditor({ isMobile }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   useEffect(() => { refreshLibrary(); }, []);
+  useEffect(() => {
+    api.getGeneralSettings().then(res => setHideRecipeSourceLinks(!!res.hideRecipeSourceLinks)).catch(console.error);
+  }, []);
 
   function refreshLibrary() {
     api.getMealLibrary().then(res => setLibrary(res.meals || [])).catch(console.error);
+  }
+
+  async function toggleHideSourceLinks() {
+    const next = !hideRecipeSourceLinks;
+    setHideRecipeSourceLinks(next);
+    setSavingSourceLinkSetting(true);
+    try {
+      const res = await api.saveGeneralSettings({ hideRecipeSourceLinks: next });
+      onGeneralSettingsSaved?.(res.settings);
+    } finally {
+      setSavingSourceLinkSetting(false);
+    }
   }
 
   function toggleWeek(key) {
@@ -1389,6 +1410,7 @@ function MealsEditor({ isMobile }) {
 
       await api.saveMealToLibrary({
         name: title,
+        image: scraped.image || '',
         sourceUrl: urlInput.trim(),
         sourceName: hostname,
         ingredients,
@@ -1421,6 +1443,7 @@ function MealsEditor({ isMobile }) {
         const details = await api.getRecipeDetails(candidate.spoonacularId);
         full = {
           title: details.title || candidate.title,
+          image: details.image || candidate.image,
           sourceUrl: details.sourceUrl || candidate.sourceUrl,
           sourceName: details.sourceName || candidate.sourceName,
           ingredients: details.ingredients?.length ? details.ingredients : candidate.ingredients,
@@ -1430,6 +1453,7 @@ function MealsEditor({ isMobile }) {
         const details = await api.getMealieRecipeDetails(candidate.mealieSlug);
         full = {
           title: details.title || candidate.title,
+          image: details.image || candidate.image,
           sourceUrl: details.sourceUrl || candidate.sourceUrl,
           sourceName: details.sourceName || candidate.sourceName,
           ingredients: details.ingredients?.length ? details.ingredients : candidate.ingredients,
@@ -1439,6 +1463,7 @@ function MealsEditor({ isMobile }) {
 
       await api.saveMealToLibrary({
         name: full.title,
+        image: full.image || '',
         sourceUrl: full.sourceUrl || '',
         sourceName: full.sourceName || '',
         ingredients: full.ingredients || [],
@@ -1470,6 +1495,7 @@ function MealsEditor({ isMobile }) {
     selectCandidate({
       selectKey: meal.id,
       title: meal.name,
+      image: meal.image,
       sourceUrl: meal.sourceUrl,
       sourceName: meal.sourceName,
       ingredients: meal.ingredients,
@@ -1589,6 +1615,7 @@ function MealsEditor({ isMobile }) {
           <div style={s.rewardEditor}>
             <div style={s.rewardLabel}>From your meal library</div>
             <RecipeResultCard
+              image={exactLibraryMatch.image}
               title={exactLibraryMatch.name}
               sourceName={exactLibraryMatch.sourceName}
               ingredients={exactLibraryMatch.ingredients}
@@ -1622,6 +1649,7 @@ function MealsEditor({ isMobile }) {
                     spoonacularId: recipe.mealieSlug ? undefined : recipe.id,
                     mealieSlug: recipe.mealieSlug,
                     title: recipe.title,
+                    image: recipe.image,
                     sourceUrl: recipe.sourceUrl,
                     sourceName: recipe.sourceName,
                     ingredients: recipe.ingredients,
@@ -1668,6 +1696,24 @@ function MealsEditor({ isMobile }) {
           </div>
         </div>
       )}
+
+      <div style={s.card}>
+        <div style={{ ...s.personName, display: 'flex', alignItems: 'center', gap: 8 }}>
+          <Icon name="link" size={18} /> Recipe Display
+        </div>
+        <div style={s.list}>
+          <label style={{ ...s.row, cursor: 'pointer', opacity: savingSourceLinkSetting ? 0.6 : 1 }}>
+            <span style={s.rowName}>Hide recipe source link</span>
+            <input
+              type="checkbox"
+              checked={hideRecipeSourceLinks}
+              onChange={toggleHideSourceLinks}
+              disabled={savingSourceLinkSetting}
+              style={s.toggleCheckbox}
+            />
+          </label>
+        </div>
+      </div>
 
       <SpoonacularSettingsCard isMobile={isMobile} />
       <MealieSettingsCard isMobile={isMobile} />
@@ -3233,6 +3279,10 @@ const s = {
     borderRadius: 10, background: 'var(--bg)', border: '0.5px solid var(--border)',
   },
   recipeResultImg: { width: 48, height: 48, borderRadius: 8, objectFit: 'cover', flexShrink: 0 },
+  recipeResultImgPlaceholder: {
+    width: 48, height: 48, borderRadius: 8, flexShrink: 0, background: 'var(--bg)',
+    border: '0.5px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center',
+  },
   recipeResultInfo: { flex: 1, minWidth: 0 },
   recipeResultIngredients: {
     fontSize: 13, color: 'var(--text-3)', marginTop: 4,

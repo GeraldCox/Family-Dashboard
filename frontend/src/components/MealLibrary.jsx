@@ -38,7 +38,7 @@ function formatNoteDate(dateStr) {
   return new Date(y, m - 1, d).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' });
 }
 
-export default function MealLibrary() {
+export default function MealLibrary({ hideRecipeSourceLinks }) {
   const [meals, setMeals] = useState(null);
   const [search, setSearch] = useState('');
   const [sortBy, setSortBy] = useState('recent');
@@ -160,86 +160,95 @@ export default function MealLibrary() {
             const notes = notesByMeal[meal.name];
             return (
               <div key={meal.id} style={s.card}>
-                <div style={s.cardHead}>
-                  <div style={s.cardTitle}>{meal.name}</div>
-                  {meal.sourceUrl && (
-                    <a href={meal.sourceUrl} target="_blank" rel="noreferrer" style={s.sourceLink}>
-                      <Icon name="link" size={14} /> {meal.sourceName || 'source'}
-                    </a>
-                  )}
-                </div>
-
-                <div style={s.metaRow}>
-                  <span style={s.lastPlanned}>
-                    {meal.lastPlanned ? `Last planned: ${formatNoteDate(meal.lastPlanned)}` : 'Never planned'}
-                  </span>
-                  <button
-                    style={s.viewRecipeLink}
-                    onClick={() => setViewingMeal({ name: meal.name, date: meal.lastPlanned || toDateStr(new Date()) })}
-                  >
-                    <Icon name="chevron-right" size={13} /> View recipe
-                  </button>
-                </div>
-
-                <div style={s.ratingRow}>
-                  {meal.averageRating != null ? (
-                    <>
-                      <span style={s.stars}>{renderStars(meal.averageRating)}</span>
-                      <span style={s.ratingValue}>{meal.averageRating.toFixed(1)}</span>
-                      <span style={s.ratedCount}>Rated {ratedCount} time{ratedCount === 1 ? '' : 's'}</span>
-                    </>
+                <div style={s.cardBody}>
+                  {meal.image ? (
+                    <img src={meal.image} alt="" style={s.thumb} />
                   ) : (
-                    <span style={s.notRated}>Not yet rated</span>
+                    <div style={s.thumbPlaceholder}><Icon name="utensils" size={20} style={{ color: 'var(--text-3)' }} /></div>
                   )}
-                </div>
+                  <div style={s.cardMain}>
+                    <div style={s.cardHead}>
+                      <div style={s.cardTitle}>{meal.name}</div>
+                      {meal.sourceUrl && !hideRecipeSourceLinks && (
+                        <a href={meal.sourceUrl} target="_blank" rel="noreferrer" style={s.sourceLink}>
+                          <Icon name="link" size={14} /> {meal.sourceName || 'source'}
+                        </a>
+                      )}
+                    </div>
 
-                {preview.length > 0 && (
-                  <div style={s.ingredientsPreview}>{preview.join(', ')}</div>
-                )}
+                    <div style={s.metaRow}>
+                      <span style={s.lastPlanned}>
+                        {meal.lastPlanned ? `Last planned: ${formatNoteDate(meal.lastPlanned)}` : 'Never planned'}
+                      </span>
+                      <button
+                        style={s.viewRecipeLink}
+                        onClick={() => setViewingMeal({ name: meal.name, date: meal.lastPlanned || toDateStr(new Date()) })}
+                      >
+                        <Icon name="book" size={13} /> View recipe
+                      </button>
+                    </div>
 
-                {notesCount > 0 && (
-                  <div style={s.notesSection}>
-                    <button style={s.notesToggleBtn} onClick={() => toggleNotes(meal)}>
-                      <Icon name="clipboard-list" size={15} /> Notes ({notesCount})
-                      <Icon name="chevron-right" size={15} style={{ transform: isNotesOpen ? 'rotate(-90deg)' : 'rotate(90deg)', transition: 'transform var(--dur-fast) var(--ease)' }} />
-                    </button>
-                    {isNotesOpen && (
-                      <div style={s.notesList}>
-                        {notes === 'loading' && <div style={s.emptySmall}>Loading notes…</div>}
-                        {Array.isArray(notes) && notes.map((n, i) => (
-                          <div key={i} style={s.noteItem}>
-                            {formatNoteDate(n.date)} · {noteStars(n.stars)} · {n.note}
+                    <div style={s.ratingRow}>
+                      {meal.averageRating != null ? (
+                        <>
+                          <span style={s.stars}>{renderStars(meal.averageRating)}</span>
+                          <span style={s.ratingValue}>{meal.averageRating.toFixed(1)}</span>
+                          <span style={s.ratedCount}>Rated {ratedCount} time{ratedCount === 1 ? '' : 's'}</span>
+                        </>
+                      ) : (
+                        <span style={s.notRated}>Not yet rated</span>
+                      )}
+                    </div>
+
+                    {preview.length > 0 && (
+                      <div style={s.ingredientsPreview}>{preview.join(', ')}</div>
+                    )}
+
+                    {notesCount > 0 && (
+                      <div style={s.notesSection}>
+                        <button style={s.notesToggleBtn} onClick={() => toggleNotes(meal)}>
+                          <Icon name="clipboard-list" size={15} /> Notes ({notesCount})
+                          <Icon name="chevron-right" size={15} style={{ transform: isNotesOpen ? 'rotate(-90deg)' : 'rotate(90deg)', transition: 'transform var(--dur-fast) var(--ease)' }} />
+                        </button>
+                        {isNotesOpen && (
+                          <div style={s.notesList}>
+                            {notes === 'loading' && <div style={s.emptySmall}>Loading notes…</div>}
+                            {Array.isArray(notes) && notes.map((n, i) => (
+                              <div key={i} style={s.noteItem}>
+                                {formatNoteDate(n.date)} · {noteStars(n.stars)} · {n.note}
+                              </div>
+                            ))}
+                            {Array.isArray(notes) && notes.length === 0 && (
+                              <div style={s.emptySmall}>No notes yet.</div>
+                            )}
                           </div>
-                        ))}
-                        {Array.isArray(notes) && notes.length === 0 && (
-                          <div style={s.emptySmall}>No notes yet.</div>
                         )}
                       </div>
                     )}
-                  </div>
-                )}
 
-                <div style={s.cardActions}>
-                  {addingFor === meal.name ? (
-                    <div style={s.dayPicker}>
-                      {(weekDays || []).map(d => (
-                        <button key={d.dateKey} style={s.dayPickerBtn} onClick={() => addToDay(meal, d.dateKey)}>
-                          {d.label}
-                          {d.meals.length > 0
-                            ? <Icon name="check-square" size={13} style={s.dayPickerCheckIcon} />
-                            : <span style={s.dayPickerCheckEmpty} />}
+                    <div style={s.cardActions}>
+                      {addingFor === meal.name ? (
+                        <div style={s.dayPicker}>
+                          {(weekDays || []).map(d => (
+                            <button key={d.dateKey} style={s.dayPickerBtn} onClick={() => addToDay(meal, d.dateKey)}>
+                              {d.label}
+                              {d.meals.length > 0
+                                ? <Icon name="check-square" size={13} style={s.dayPickerCheckIcon} />
+                                : <span style={s.dayPickerCheckEmpty} />}
+                            </button>
+                          ))}
+                          <button style={s.dayPickerCancel} onClick={() => setAddingFor(null)} aria-label="Cancel"><Icon name="x" size={15} /></button>
+                        </div>
+                      ) : (
+                        <button style={s.addWeekBtn} onClick={() => setAddingFor(meal.name)}>
+                          + Add to plan
                         </button>
-                      ))}
-                      <button style={s.dayPickerCancel} onClick={() => setAddingFor(null)} aria-label="Cancel"><Icon name="x" size={15} /></button>
+                      )}
+                      <button style={s.deleteBtn} onClick={() => removeMeal(meal.name)} title="Delete from library" aria-label="Delete from library">
+                        <Icon name="trash" size={17} />
+                      </button>
                     </div>
-                  ) : (
-                    <button style={s.addWeekBtn} onClick={() => setAddingFor(meal.name)}>
-                      + Add to plan
-                    </button>
-                  )}
-                  <button style={s.deleteBtn} onClick={() => removeMeal(meal.name)} title="Delete from library" aria-label="Delete from library">
-                    <Icon name="trash" size={17} />
-                  </button>
+                  </div>
                 </div>
               </div>
             );
@@ -254,6 +263,7 @@ export default function MealLibrary() {
           startExpanded
           onClose={() => setViewingMeal(null)}
           onRated={() => refresh()}
+          hideSourceLink={hideRecipeSourceLinks}
         />
       )}
     </div>
@@ -299,6 +309,13 @@ const s = {
     background: 'var(--surface)', borderRadius: 16, padding: 14,
     border: '0.5px solid var(--border)', boxShadow: 'var(--shadow-sm)',
   },
+  cardBody: { display: 'flex', gap: 12, alignItems: 'flex-start' },
+  thumb: { width: 64, height: 64, borderRadius: 10, objectFit: 'cover', flexShrink: 0 },
+  thumbPlaceholder: {
+    width: 64, height: 64, borderRadius: 10, flexShrink: 0, background: 'var(--bg)',
+    border: '0.5px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center',
+  },
+  cardMain: { flex: 1, minWidth: 0 },
   cardHead: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' },
   cardTitle: { fontSize: 16, fontWeight: 700, color: 'var(--text-1)' },
   sourceLink: { fontSize: 13, color: 'var(--blue)', textDecoration: 'none', flexShrink: 0, display: 'inline-flex', alignItems: 'center', gap: 5 },
@@ -308,7 +325,7 @@ const s = {
   viewRecipeLink: {
     border: 'none', background: 'none', cursor: 'pointer', padding: 0,
     fontSize: 13, fontWeight: 600, color: 'var(--blue)',
-    display: 'inline-flex', alignItems: 'center', gap: 2,
+    display: 'inline-flex', alignItems: 'center', gap: 5,
   },
 
   ratingRow: { display: 'flex', alignItems: 'center', gap: 8, marginTop: 6, flexWrap: 'wrap' },

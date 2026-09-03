@@ -14,7 +14,7 @@ const MEALS_SUB_TABS = [
   { id: 'library', label: 'Library' },
 ];
 
-export default function Meals() {
+export default function Meals({ hideRecipeSourceLinks }) {
   const [subTab, setSubTab] = useState('week');
 
   return (
@@ -31,8 +31,8 @@ export default function Meals() {
         ))}
       </div>
       <div style={s.tabBody}>
-        {subTab === 'week' && <WeekPlanner />}
-        {subTab === 'library' && <MealLibrary />}
+        {subTab === 'week' && <WeekPlanner hideRecipeSourceLinks={hideRecipeSourceLinks} />}
+        {subTab === 'library' && <MealLibrary hideRecipeSourceLinks={hideRecipeSourceLinks} />}
       </div>
     </div>
   );
@@ -116,7 +116,7 @@ const DRAG_THRESHOLD_PX = 8;
 // lift, so a quick tap never flashes it.
 const PRESS_AFFORDANCE_DELAY_MS = 180;
 
-function WeekPlanner() {
+function WeekPlanner({ hideRecipeSourceLinks }) {
   const [data, setData] = useState(null);
   const [detailTarget, setDetailTarget] = useState(null); // { date, mealName, isPast }
   const [addMealTarget, setAddMealTarget] = useState(null); // { date, label } — tapped empty space on this day
@@ -309,6 +309,7 @@ function WeekPlanner() {
           mealName={detailTarget.mealName}
           onClose={() => setDetailTarget(null)}
           onRated={handleRated}
+          hideSourceLink={hideRecipeSourceLinks}
         />
       )}
 

@@ -12,7 +12,7 @@ function formatNoteDate(dateStr) {
 // Shared by the Meals Planner (opened from a specific planned day) and the
 // Library (opened from a meal's own card, with no specific day in context —
 // callers pass `date` as the meal's own last-planned date, or today).
-export default function RecipeDetailModal({ date, mealName, onClose, onRated, startExpanded = false }) {
+export default function RecipeDetailModal({ date, mealName, onClose, onRated, startExpanded = false, hideSourceLink = false }) {
   const [full, setFull] = useState(undefined); // undefined = loading, null = not found
   const [stars, setStars] = useState(0);
   const [note, setNote] = useState('');
@@ -65,7 +65,7 @@ export default function RecipeDetailModal({ date, mealName, onClose, onRated, st
         </div>
 
         <div style={s.detailModalBody}>
-        {full?.sourceUrl && (
+        {full?.sourceUrl && !hideSourceLink && (
           <a href={full.sourceUrl} target="_blank" rel="noreferrer" style={s.sourceLinkRow}>
             <Icon name="link" size={15} /> {full.sourceName || 'View source'}
           </a>
@@ -82,17 +82,20 @@ export default function RecipeDetailModal({ date, mealName, onClose, onRated, st
             <div style={{ ...s.recipeBodyOuter, maxHeight: recipeExpanded ? 2000 : 0 }}>
               <div style={s.detailSection}>
                 <div style={s.label}>Ingredients</div>
-                {ingredients.length > 0 ? (
-                  <ul style={s.ingredientList}>
-                    {ingredients.map((ing, i) => (
-                      <li key={i} style={s.ingredientItem}>
-                        {[ing.amount, ing.unit, ing.name].filter(Boolean).join(' ')}
-                      </li>
-                    ))}
-                  </ul>
-                ) : (
-                  <div style={s.notAvailable}>Not available</div>
-                )}
+                <div style={s.ingredientsRow}>
+                  {ingredients.length > 0 ? (
+                    <ul style={s.ingredientList}>
+                      {ingredients.map((ing, i) => (
+                        <li key={i} style={s.ingredientItem}>
+                          {[ing.amount, ing.unit, ing.name].filter(Boolean).join(' ')}
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <div style={s.notAvailable}>Not available</div>
+                  )}
+                  {full?.image && <img src={full.image} alt="" style={s.recipeImage} />}
+                </div>
               </div>
 
               <div style={s.detailSection}>
@@ -237,8 +240,10 @@ const s = {
     display: 'block', fontSize: 13, fontWeight: 700, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 8,
     fontFamily: 'var(--font-heading)', fontStyle: 'italic',
   },
-  ingredientList: { margin: 0, paddingLeft: 20, display: 'flex', flexDirection: 'column', gap: 6 },
+  ingredientsRow: { display: 'flex', gap: 16, alignItems: 'flex-start' },
+  ingredientList: { flex: 1, minWidth: 0, margin: 0, paddingLeft: 20, display: 'flex', flexDirection: 'column', gap: 6 },
   ingredientItem: { fontSize: 15, color: 'var(--text-1)', lineHeight: 1.4 },
+  recipeImage: { width: 120, height: 120, borderRadius: 10, objectFit: 'cover', flexShrink: 0 },
 
   instructionsList: { display: 'flex', flexDirection: 'column', gap: 14 },
   instructionRow: { display: 'flex', gap: 12, alignItems: 'flex-start' },
