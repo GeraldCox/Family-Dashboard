@@ -2916,20 +2916,39 @@ const s = {
   subNavMobile: {
     padding: '8px 8px 0 8px',
   },
+  // Every side is its own longhand — NEVER the `border` shorthand — so that
+  // borderBottom (the one border property that differs between states) is
+  // never silently reset by an unrelated shorthand assignment. React skips
+  // reapplying a style key whose value is unchanged from the last render;
+  // mixing a shorthand with a longhand override caused a real stuck-value
+  // bug here before, in both toggle directions.
+  // Inset shadow along the bottom (inside edge) by default — reads as this
+  // tab receding under the raised active tab/panel in front of it, like a
+  // stack of physical index cards.
   subNavTab: {
     padding: '9px 18px', fontSize: 15, fontWeight: 500,
-    color: 'var(--blue)', background: 'var(--bg)',
-    border: '0.5px solid var(--border)', borderBottom: 'none',
+    color: 'var(--text-3)', background: 'var(--bg)',
+    borderTop: '0.5px solid var(--border)', borderLeft: '0.5px solid var(--border)', borderRight: '0.5px solid var(--border)',
+    borderBottom: '0.5px solid var(--border)',
     borderRadius: '10px 10px 0 0', cursor: 'pointer',
     fontFamily: 'inherit', whiteSpace: 'nowrap', flexShrink: 0,
+    boxShadow: 'var(--tab-shadow-inset)',
   },
   subNavTabMobile: {
     padding: '8px 12px', fontSize: 14,
   },
-  // The active tab matches the content panel below it (var(--surface)) so it
-  // visually merges with its own content instead of standing apart from it.
+  // Color (bold blue) carries the "this one's selected" signal. No bottom
+  // border, so the active tab visually connects into its own panel below
+  // instead of being boxed off from it. Its own shadow moves to the outside
+  // (lifting it above the row) instead of the inset used by inactive tabs —
+  // same intensity as theirs, just cast outward instead of inward. The
+  // shadow is biased upward (negative offset + negative spread) so it stays
+  // on the top/sides only — nothing bleeds onto the bottom edge, so the tab
+  // reads as genuinely attached to its page, not floating above it.
   subNavActive: {
-    color: 'var(--text-2)', background: 'var(--surface)',
+    color: 'var(--blue)', fontWeight: 700, background: 'var(--surface)',
+    borderBottom: 'none',
+    boxShadow: 'var(--tab-shadow)',
   },
   subNavFade: {
     position: 'absolute', top: 0, bottom: 0, width: 28, pointerEvents: 'none',

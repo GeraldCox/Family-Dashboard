@@ -41,6 +41,11 @@
 
   --shadow-sm: 0 1px 3px rgba(33,116,117,0.08), 0 1px 2px rgba(33,116,117,0.06);
   --shadow-md: 0 4px 14px rgba(33,116,117,0.12);
+  /* Same color/alpha as --shadow-sm (the day-card shadow), just redirected
+     for the "physical tab" effect: outward+upward for the active tab,
+     inward+downward (inset) for inactive tabs tucked under it. */
+  --tab-shadow: 0 -2px 3px -1px rgba(33,116,117,0.08);
+  --tab-shadow-inset: inset 0 -3px 3px -2px rgba(33,116,117,0.08);
   --shadow-lg: 0 12px 32px rgba(33,116,117,0.16);
 
   --ring: 0 0 0 3px rgba(60,193,195,0.45);
@@ -73,6 +78,8 @@
   --shadow-sm: 0 1px 3px rgba(0,0,0,0.35);
   --shadow-md: 0 4px 14px rgba(0,0,0,0.45);
   --shadow-lg: 0 12px 32px rgba(0,0,0,0.55);
+  --tab-shadow: 0 -2px 3px -1px rgba(0,0,0,0.35);
+  --tab-shadow-inset: inset 0 -3px 3px -2px rgba(0,0,0,0.35);
   --ring: 0 0 0 3px rgba(75,236,238,0.4);
 }
 

@@ -4,7 +4,8 @@ import { useScreenSize } from '../hooks/useScreenSize';
 import MealLibrary from './MealLibrary';
 import Icon from './Icon';
 import RecipeDetailModal from './RecipeDetailModal';
-import { DOW_SHORT, toDateStr, addDays, formatDateRange, isSameDate, getThreeWeekRanges } from '../utils/weekDates';
+import AddMealModal from './AddMealModal';
+import { DOW_SHORT, toDateStr, addDays, formatDateRange, isSameDate, getThreeWeekRanges, formatLongDateOrdinal } from '../utils/weekDates';
 
 const MEAL_COLORS = ['#ef4444','#f59e0b','#10b981','#3b82f6','#8b5cf6','#ec4899','#06b6d4'];
 
@@ -67,6 +68,7 @@ function WeekSection({
                 ...(isToday ? { border: `2px solid ${color}`, background: color + '0d' } : {}),
                 ...(isDragOver ? s.dayCardDragOver : {}),
               }}
+              onClick={() => onEmptyClick(dateKey, formatLongDateOrdinal(date, { month: 'short' }))}
             >
               <div style={{ ...s.dayLabel, color }}>
                 {DOW_SHORT[i]} {date.getDate()}
@@ -89,14 +91,14 @@ function WeekSection({
                         onPointerMove={onDragPointerMove}
                         onPointerUp={onDragPointerUp}
                         onPointerCancel={onDragPointerUp}
-                        onClick={() => onMealClick(dateKey, m, isPast)}
+                        onClick={e => { e.stopPropagation(); onMealClick(dateKey, m, isPast); }}
                       >
                         <span style={s.mealPillText}><Icon name="utensils" size={14} style={{ display: 'inline-block', verticalAlign: '-2px', marginRight: 5 }} />{m}</span>
                       </div>
                     );
                   })
                 ) : (
-                  <div style={s.emptyMeal} onClick={onEmptyClick}>No meals planned</div>
+                  <div style={s.emptyMeal}>No meals planned</div>
                 )}
               </div>
             </div>
@@ -117,7 +119,7 @@ const PRESS_AFFORDANCE_DELAY_MS = 180;
 function WeekPlanner() {
   const [data, setData] = useState(null);
   const [detailTarget, setDetailTarget] = useState(null); // { date, mealName, isPast }
-  const [showEmptyNotice, setShowEmptyNotice] = useState(false);
+  const [addMealTarget, setAddMealTarget] = useState(null); // { date, label } — tapped empty space on this day
   const { isMobile } = useScreenSize();
 
   // Drag-to-reschedule state. dragMeal (and the ghost) only appear once the
@@ -282,7 +284,7 @@ function WeekPlanner() {
           todayMidnight={todayMidnight}
           days={data.days}
           isMobile={isMobile}
-          onEmptyClick={() => setShowEmptyNotice(true)}
+          onEmptyClick={(date, label) => setAddMealTarget({ date, label })}
           dragMeal={dragMeal}
           dragOverDate={dragOverDate}
           pressedMeal={pressedMeal}
@@ -310,13 +312,13 @@ function WeekPlanner() {
         />
       )}
 
-      {showEmptyNotice && (
-        <div style={s.overlay} onClick={() => setShowEmptyNotice(false)}>
-          <div style={s.noticeModal} onClick={e => e.stopPropagation()}>
-            <div style={s.noticeText}>Add meals for this day in Edit → Meals</div>
-            <button style={s.rateSubmitBtn} onClick={() => setShowEmptyNotice(false)}>Got it</button>
-          </div>
-        </div>
+      {addMealTarget && (
+        <AddMealModal
+          date={addMealTarget.date}
+          dateLabel={addMealTarget.label}
+          onClose={() => setAddMealTarget(null)}
+          onAdd={name => copyMeal(addMealTarget.date, name)}
+        />
       )}
     </div>
   );
@@ -325,13 +327,36 @@ function WeekPlanner() {
 const s = {
   tabWrap: { display: 'flex', flexDirection: 'column', height: '100%' },
   subNav: { display: 'flex', gap: 4, padding: '10px 16px 0 16px', flexShrink: 0 },
+  // Every side is its own longhand — NEVER the `border` shorthand — so that
+  // borderBottom (the one border property that differs between states) is
+  // never silently reset by an unrelated shorthand assignment. React skips
+  // reapplying a style key whose value is unchanged from the last render;
+  // mixing a shorthand with a longhand override caused a real stuck-value
+  // bug here before, in both toggle directions.
+  // Inset shadow along the bottom (inside edge) by default — reads as this
+  // tab receding under the raised active tab/panel in front of it, like a
+  // stack of physical index cards.
   subNavTab: {
     padding: '9px 18px', fontSize: 15, fontWeight: 500,
-    color: 'var(--blue)', background: 'var(--bg)',
-    border: '0.5px solid var(--border)', borderBottom: 'none',
+    color: 'var(--text-3)', background: 'var(--bg)',
+    borderTop: '0.5px solid var(--border)', borderLeft: '0.5px solid var(--border)', borderRight: '0.5px solid var(--border)',
+    borderBottom: '0.5px solid var(--border)',
     borderRadius: '10px 10px 0 0', cursor: 'pointer', fontFamily: 'inherit',
+    boxShadow: 'var(--tab-shadow-inset)',
   },
-  subNavActive: { color: 'var(--text-2)', background: 'var(--surface)' },
+  // Color (bold blue) carries the "this one's selected" signal. No bottom
+  // border, so the active tab visually connects into its own panel below
+  // instead of being boxed off from it. Its own shadow moves to the outside
+  // (lifting it above the row) instead of the inset used by inactive tabs —
+  // same intensity as theirs, just cast outward instead of inward. The
+  // shadow is biased upward (negative offset + negative spread) so it stays
+  // on the top/sides only — nothing bleeds onto the bottom edge, so the tab
+  // reads as genuinely attached to its page, not floating above it.
+  subNavActive: {
+    color: 'var(--blue)', fontWeight: 700, background: 'var(--surface)',
+    borderBottom: 'none',
+    boxShadow: 'var(--tab-shadow)',
+  },
   tabBody: { flex: 1, overflow: 'hidden' },
 
   wrap: { padding: 20, overflowY: 'auto', height: '100%', display: 'flex', flexDirection: 'column' },
@@ -348,7 +373,7 @@ const s = {
   },
   grid: { display: 'grid', gridTemplateColumns: 'repeat(7, minmax(0, 1fr))', gap: 8, alignItems: 'stretch' },
   gridMobile: { gridTemplateColumns: '1fr', gap: 8 },
-  dayCard: { background: 'var(--surface)', borderRadius: 16, padding: 14, border: '0.5px solid var(--border)', minHeight: 130, boxShadow: 'var(--shadow-sm)' },
+  dayCard: { background: 'var(--surface)', borderRadius: 16, padding: 14, border: '0.5px solid var(--border)', minHeight: 130, boxShadow: 'var(--shadow-sm)', cursor: 'pointer' },
   dayCardMobile: { minHeight: 0 },
   dayCardDragOver: { outline: '2px dashed var(--blue)', outlineOffset: -2, background: 'rgba(60,126,195,0.12)' },
   dayCardPast: { opacity: 0.55 },
@@ -379,19 +404,4 @@ const s = {
   },
   mealPillText: { flex: 1 },
   emptyMeal: { fontSize: 14, color: 'var(--text-3)', fontStyle: 'italic', paddingTop: 4, cursor: 'pointer' },
-
-  overlay: {
-    position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)',
-    display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000,
-  },
-  noticeModal: {
-    background: 'var(--surface)', borderRadius: 16, padding: 20,
-    width: 320, maxWidth: '90vw', textAlign: 'center',
-    boxShadow: '0 12px 40px rgba(0,0,0,0.25)',
-  },
-  noticeText: { fontSize: 16, color: 'var(--text-1)', marginBottom: 14, lineHeight: 1.5 },
-  rateSubmitBtn: {
-    width: '100%', marginTop: 12, padding: '9px', borderRadius: 8, border: 'none',
-    background: 'var(--blue)', color: 'white', fontSize: 15, fontWeight: 700, cursor: 'pointer',
-  },
 };
